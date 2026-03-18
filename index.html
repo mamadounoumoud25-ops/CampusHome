@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>CampusHome - Logement Étudiant - Université de Labé</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/609/609803.png">
+    <meta name="apple-mobile-web-app-title" content="CampusHome">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Ionicons pour les icônes -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="logo">
+            <ion-icon name="home-outline"></ion-icon>
+            <span>CampusHome</span>
+        </div>
+        <div class="nav-links">
+            <a href="#accueil" class="active">Accueil</a>
+            <a href="#logements">Trouver</a>
+            <a href="#" onclick="switchAuthTab('signup'); openAuth()">Propriétaires</a>
+
+            <div class="nav-extra" style="display: flex; align-items: center; gap: 1rem;">
+                <!-- Notification Bell -->
+                <div id="notif-wrapper" style="position: relative; display: none;">
+                    <div id="notif-bell" onclick="toggleNotifs()"
+                        style="cursor: pointer; font-size: 1.5rem; color: var(--gray); display: flex; align-items: center;">
+                        <ion-icon name="notifications-outline"></ion-icon>
+                        <span id="notif-badge"
+                            style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; width: 18px; height: 18px; border-radius: 50%; font-size: 0.7rem; display: none; align-items: center; justify-content: center; border: 2px solid var(--white);">0</span>
+                    </div>
+                    <!-- Dropdown Notifs -->
+                    <div id="notif-dropdown" class="glass-panel hidden"
+                        style="position: absolute; top: 40px; right: 0; width: 300px; padding: 1.5rem; border-radius: 20px; z-index: 1001; max-height: 400px; overflow-y: auto; box-shadow: var(--shadow-lg);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h4 style="margin: 0;">Notifications</h4>
+                            <span onclick="markAllAsRead()"
+                                style="font-size: 0.75rem; color: var(--primary); cursor: pointer;">Tout lire</span>
+                        </div>
+                        <div id="notif-list" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                            <!-- Injecté par JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lang Toggle -->
+                <div onclick="toggleLang()" id="lang-btn"
+                    style="cursor: pointer; font-weight: 700; color: var(--gray); font-size: 0.9rem; background: var(--light); padding: 5px 10px; border-radius: 8px;">
+                    FR</div>
+
+                <div id="install-btn-wrapper" style="display: none;">
+                    <button onclick="installPWA()"
+                        style="background: var(--primary); color: white; border: none; padding: 5px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;">
+                        <ion-icon name="download-outline"></ion-icon> App
+                    </button>
+                </div>
+
+                <div class="theme-toggle" onclick="toggleTheme()"
+                    style="cursor: pointer; font-size: 1.5rem; display: flex; align-items: center; color: var(--gray);">
+                    <ion-icon name="moon-outline" id="theme-icon"></ion-icon>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="auth-btn" onclick="openAuth()">Connexion</button>
+        </div>
+        <div class="mobile-menu-btn">
+            <ion-icon name="menu-outline"></ion-icon>
+        </div>
+    </nav>
+
+    <!-- Espace Étudiant (Connecté) -->
+    <section id="student-space" class="container hidden reveal"
+        style="margin-top: 2rem; background: var(--white); padding: 1.5rem; border-radius: 20px; box-shadow: var(--shadow-sm);">
+        <h2 style="color: var(--primary); margin-bottom: 1rem;">🏠 Mon Logement Actuel</h2>
+        <div id="current-rental-info">
+            <!-- Injecté par JS : soit une carte du logement, soit 'Aucun logement occupé' -->
+        </div>
+    </section>
+
+    <!-- Héros / Accueil -->
+    <section id="accueil" class="hero">
+        <div class="hero-blob" style="top: -10%; left: -10%;"></div>
+        <div class="hero-blob"
+            style="bottom: -10%; right: -10%; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);">
+        </div>
+
+        <div class="hero-content reveal">
+            <span class="badge">Nouveaux Étudiants</span>
+            <h1>Trouvez votre logement idéal à <span class="highlight">Labé</span>.</h1>
+            <p>La plateforme officielle pour les étudiants de l'Université de Labé. Sécurisé, rapide et sans arnaque.
+                Trouvez votre chambre à Hafia et environs.</p>
+            <div class="search-bar"
+                style="max-width: 900px; background: white; padding: 10px; border-radius: 25px; box-shadow: var(--shadow-lg); display: flex; flex-wrap: wrap; gap: 10px; margin-top: 2rem;">
+                <div class="search-input-wrapper" style="flex: 2; position: relative;">
+                    <ion-icon name="search-outline"
+                        style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--gray);"></ion-icon>
+                    <input type="text" id="smart-search" placeholder="Quartier, type, ou titre..."
+                        oninput="handleSmartSearch()"
+                        style="width: 100%; padding: 1rem 1rem 1rem 3rem; border: none; border-radius: 20px; outline: none; background: #f8fafc; font-size: 1rem;">
+                </div>
+                <div
+                    style="flex: 1; min-width: 200px; display: flex; flex-direction: column; justify-content: center; padding: 0 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--gray); margin-bottom: 5px;">
+                        <span>Budget Max</span>
+                        <span id="price-display">Illimité</span>
+                    </div>
+                    <input type="range" id="price-slider" min="50000" max="2000000" step="50000" value="2000000"
+                        oninput="handlePriceSlider()" style="width: 100%; cursor: pointer;">
+                </div>
+                <button class="btn-search" onclick="filtrerLogements()" style="flex: 0.5; border-radius: 20px;">
+                    Filtrer
+                </button>
+            </div>
+        </div>
+        <div class="hero-image">
+            <div class="floating-card c1">
+                <div class="icon-box"><ion-icon name="shield-checkmark"></ion-icon></div>
+                <div class="text">
+                    <strong>100% Vérifié</strong>
+                    <span>Pas d'arnaques</span>
+                </div>
+            </div>
+            <div class="floating-card c2">
+                <div class="icon-box"><ion-icon name="people"></ion-icon></div>
+                <div class="text">
+                    <strong>+500 Étudiants</strong>
+                    <span>Nous font confiance</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Catégories Rapides -->
+    <section class="container reveal" style="margin-top: -3rem; position: relative; z-index: 10;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+            <div class="category-card" onclick="filterTag('chamber')"
+                style="background: white; padding: 1.5rem; border-radius: 20px; box-shadow: var(--shadow-sm); text-align: center; cursor: pointer; transition: transform 0.3s ease;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🛌</div>
+                <h3 style="margin: 0; font-size: 1.1rem;">Chambres Simples</h3>
+                <p style="font-size: 0.8rem; color: #64748b; margin: 0.5rem 0 0;">Idéal petit budget</p>
+            </div>
+            <div class="category-card" onclick="filterTag('apartment')"
+                style="background: white; padding: 1.5rem; border-radius: 20px; box-shadow: var(--shadow-sm); text-align: center; cursor: pointer; transition: transform 0.3s ease;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🏠</div>
+                <h3 style="margin: 0; font-size: 1.1rem;">Studios & Appartements</h3>
+                <p style="font-size: 0.8rem; color: #64748b; margin: 0.5rem 0 0;">Plus de confort</p>
+            </div>
+            <div class="category-card" onclick="filterTag('all')"
+                style="background: white; padding: 1.5rem; border-radius: 20px; box-shadow: var(--shadow-sm); text-align: center; cursor: pointer; transition: transform 0.3s ease;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">✨</div>
+                <h3 style="margin: 0; font-size: 1.1rem;">Toutes les Offres</h3>
+                <p style="font-size: 0.8rem; color: #64748b; margin: 0.5rem 0 0;">Explorer tout</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quartiers Populaires -->
+    <section class="container reveal" style="margin-top: 4rem;">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Vivre près de <span class="highlight">l'Université</span>
+        </h2>
+        <div style="display: flex; gap: 1rem; overflow-x: auto; padding: 1rem 0; scrollbar-width: none;">
+            <div class="location-tag" onclick="dbLocationFilter('Hafia')"
+                style="min-width: 150px; background: #e0e7ff; color: #4338ca; padding: 1rem; border-radius: 15px; font-weight: bold; text-align: center; cursor: pointer;">
+                Hafia</div>
+            <div class="location-tag" onclick="dbLocationFilter('Tata')"
+                style="min-width: 150px; background: #fef3c7; color: #92400e; padding: 1rem; border-radius: 15px; font-weight: bold; text-align: center; cursor: pointer;">
+                Tata</div>
+            <div class="location-tag" onclick="dbLocationFilter('Kouroula')"
+                style="min-width: 150px; background: #d1fae5; color: #065f46; padding: 1rem; border-radius: 15px; font-weight: bold; text-align: center; cursor: pointer;">
+                Kouroula</div>
+            <div class="location-tag" onclick="dbLocationFilter('Pounthioun')"
+                style="min-width: 150px; background: #ffedd5; color: #9a3412; padding: 1rem; border-radius: 15px; font-weight: bold; text-align: center; cursor: pointer;">
+                Pounthioun</div>
+        </div>
+    </section>
+
+    <!-- Section Logements -->
+    <section id="logements" class="listings-section reveal" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2>Logements Disponibles</h2>
+            <p>Les meilleures chambres et appartements vérifiés pour vous.</p>
+        </div>
+
+        <div class="filters-tags">
+            <button class="tag active" onclick="filterTag('all')">Tout</button>
+            <button class="tag" onclick="filterTag('chamber')">Chambres</button>
+            <button class="tag" onclick="filterTag('apartment')">Appartements</button>
+        </div>
+
+        <div class="listings-grid" id="listings-container">
+            <!-- Les logements seront injectés ici via JS -->
+        </div>
+    </section>
+
+    <!-- Section Avantages -->
+    <section class="features reveal"
+        style="background: var(--light); border-top: 1px solid rgba(0,0,0,0.05); border-bottom: 1px solid rgba(0,0,0,0.05);">
+        <div class="feature-card glass-card">
+            <div
+                style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: white;">
+                <ion-icon name="time-outline" style="font-size: 2rem;"></ion-icon>
+            </div>
+            <h3 style="font-weight: 800;">Gain de Temps</h3>
+            <p>Plus besoin de marcher des heures. Trouvez votre futur chez-vous depuis votre canapé.</p>
+        </div>
+        <div class="feature-card glass-card">
+            <div
+                style="background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: white;">
+                <ion-icon name="shield-checkmark-outline" style="font-size: 2rem;"></ion-icon>
+            </div>
+            <h3 style="font-weight: 800;">Sécurité Totale</h3>
+            <p>Toutes nos annonces sont vérifiées par une équipe dédiée. Zéro risque d'arnaque.</p>
+        </div>
+        <div class="feature-card glass-card">
+            <div
+                style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: white;">
+                <ion-icon name="wallet-outline" style="font-size: 2rem;"></ion-icon>
+            </div>
+            <h3 style="font-weight: 800;">Prix Directs</h3>
+            <p>Comparez les meilleurs prix du marché à Labé sans aucun frais intermédiaire.</p>
+        </div>
+    </section>
+
+    <!-- Modales Auth -->
+    <div id="auth-modal" class="modal hidden">
+        <div class="modal-content glass-panel" style="border-radius: 35px; border: 1px solid white;">
+            <span class="close-modal" onclick="closeAuth()">&times;</span>
+            <div class="auth-tabs">
+                <button class="tab-btn active" id="btn-login-tab" onclick="switchAuthTab('login')">Connexion</button>
+                <button class="tab-btn" id="btn-signup-tab" onclick="switchAuthTab('signup')">Inscription</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+                <h3 style="margin-bottom: 2rem; text-align: center; font-weight: 800;">Ravi de vous revoir !</h3>
+                <div class="input-group"
+                    style="background: #f1f5f9; margin-bottom: 1rem; border: none; padding: 0.5rem 1rem;">
+                    <ion-icon name="mail-outline"></ion-icon>
+                    <input type="email" placeholder="Email" required id="login-email"
+                        style="background:none; border:none; margin:0;">
+                </div>
+                <div class="input-group"
+                    style="background: #f1f5f9; margin-bottom: 2rem; border: none; padding: 0.5rem 1rem;">
+                    <ion-icon name="lock-closed-outline"></ion-icon>
+                    <input type="password" placeholder="Mot de passe" required id="login-pass"
+                        style="background:none; border:none; margin:0;">
+                </div>
+                <div style="text-align: right; margin-top: -1.5rem; margin-bottom: 2rem;">
+                    <a href="#" onclick="openRecovery()"
+                        style="font-size: 0.85rem; color: var(--primary); text-decoration: none;">Mot de passe oublié
+                        ?</a>
+                </div>
+                <button type="submit" class="btn-primary full-width"
+                    style="padding: 1.2rem; border-radius: 15px; font-weight: 800; font-size: 1.1rem;">Se
+                    connecter</button>
+            </form>
+
+            <!-- Signup Form -->
+            <form id="signup-form" class="auth-form hidden" onsubmit="handleSignup(event)">
+                <h3 style="margin-bottom: 1.5rem; text-align: center; font-weight: 800;">Commencer l'aventure</h3>
+                <div class="role-selector" style="justify-content: center; padding: 1rem; margin-bottom: 1.5rem;">
+                    <label>
+                        <input type="radio" name="role" value="student" checked onclick="toggleSignupField('student')">
+                        Étudiant
+                    </label>
+                    <label>
+                        <input type="radio" name="role" value="owner" onclick="toggleSignupField('owner')">
+                        Propriétaire
+                    </label>
+                </div>
+                <input type="text" placeholder="Nom complet" required id="signup-name">
+                <input type="tel" placeholder="Numéro de téléphone" required id="signup-phone">
+                <input type="text" placeholder="Département / Filière" id="signup-filiere">
+                <input type="email" placeholder="Email" required id="signup-email">
+                <input type="password" placeholder="Mot de passe" required id="signup-pass">
+
+                <div class="profile-upload" style="margin-top: 1rem; text-align: center;">
+                    <label style="display: block; font-size: 0.85rem; color: var(--gray); margin-bottom: 5px;">Photo de
+                        profil (Optionnel)</label>
+                    <div onclick="document.getElementById('signup-pic-file').click()"
+                        style="width: 80px; height: 80px; border-radius: 50%; border: 2px dashed #cbd5e1; margin: 0 auto; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; background: #f1f5f9;">
+                        <ion-icon name="camera-outline" id="signup-pic-icon"
+                            style="font-size: 1.5rem; color: var(--gray);"></ion-icon>
+                        <img id="signup-pic-preview" src=""
+                            style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                    </div>
+                    <input type="file" id="signup-pic-file" accept="image/*" style="display: none;"
+                        onchange="previewProfilePic(this)">
+                </div>
+
+                <button type="submit" class="btn-primary full-width"
+                    style="padding: 1.2rem; border-radius: 15px; font-weight: 800; margin-top: 1rem;">Créer mon
+                    compte</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Étudiant -->
+    <section id="student-dashboard" class="dashboard hidden">
+        <div class="container" style="max-width: 1100px; margin: 0 auto;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                <h2 style="font-weight: 800; font-size: 2.2rem; margin: 0;">👋 Mon Espace</h2>
+                <button onclick="logout()"
+                    style="background: #fff1f2; border: none; padding: 0.8rem 1.5rem; border-radius: 15px; color: #e11d48; cursor: pointer; font-weight: 700;">Deconnexion</button>
+            </div>
+
+            <!-- Infos Logement Actuel -->
+            <div id="stu-current-rental" style="margin-bottom: 1.5rem;"></div>
+
+            <!-- Stats Student -->
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+                <div class="glass-panel"
+                    style="padding: 1.5rem; border-radius: 25px; border-left: 6px solid var(--primary);">
+                    <div style="color: var(--gray); font-size: 0.8rem; margin-bottom: 5px;">Statut</div>
+                    <div id="stu-status-text" style="font-size: 1.3rem; font-weight: 800;">...</div>
+                </div>
+                <div class="glass-panel" style="padding: 1.5rem; border-radius: 25px; border-left: 6px solid #10b981;">
+                    <div style="color: var(--gray); font-size: 0.8rem; margin-bottom: 5px;">Déjà versé</div>
+                    <div id="stu-paid-text" style="font-size: 1.3rem; font-weight: 800;">0 GNF</div>
+                </div>
+                <div class="glass-panel" style="padding: 1.5rem; border-radius: 25px; border-left: 6px solid #f59e0b;">
+                    <div style="color: var(--gray); font-size: 0.8rem; margin-bottom: 5px;">Favoris</div>
+                    <div id="stu-fav-count" style="font-size: 1.3rem; font-weight: 800;">0</div>
+                </div>
+            </div>
+
+            <div class="auth-tabs" style="border: none; margin-bottom: 1rem;">
+                <button class="tab-btn active" id="stu-tab-favs" onclick="switchStudentDashboardTab('favs')">Mes
+                    Favoris</button>
+                <button class="tab-btn" id="stu-tab-reqs" onclick="switchStudentDashboardTab('reqs')">Demandes</button>
+                <button class="tab-btn" id="stu-tab-pays" onclick="switchStudentDashboardTab('pays')">Factures</button>
+                <button class="tab-btn" id="stu-tab-docs" onclick="switchStudentDashboardTab('docs')">Documents</button>
+                <button class="tab-btn" id="stu-tab-msgs" onclick="switchStudentDashboardTab('msgs')">Messages</button>
+            </div>
+
+            <div id="stu-gallery-content">
+                <div id="student-favs-container" class="listings-grid"></div>
+            </div>
+
+            <div id="stu-reqs-content" class="hidden">
+                <div id="student-requests-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                </div>
+            </div>
+
+            <div id="stu-pays-content" class="hidden">
+                <div id="student-receipts-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                </div>
+            </div>
+
+            <div id="stu-docs-content" class="hidden">
+                <div class="glass-panel" style="padding: 1.5rem; border-radius: 20px; margin-bottom: 2rem;">
+                    <h4>Ajouter un document</h4>
+                    <p style="font-size: 0.8rem; color: var(--gray);">Envoyez votre carte d'étudiant ou contrat de
+                        bail.
+                    </p>
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                        <input type="text" id="doc-name-input" placeholder="Nom du document"
+                            style="flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #ddd;">
+                        <select id="doc-type-input" style="padding: 10px; border-radius: 10px; border: 1px solid #ddd;">
+                            <option value="student_card">Carte Étudiant</option>
+                            <option value="contract">Contrat de Bail</option>
+                            <option value="other">Autre</option>
+                        </select>
+                        <button onclick="document.getElementById('doc-file-input').click()" class="btn-sm"
+                            style="background: var(--light); color: var(--dark); border: 1px solid #ddd; padding: 10px 15px; border-radius: 10px; cursor: pointer;">Choisir
+                            Fichier</button>
+                        <input type="file" id="doc-file-input" style="display: none;" onchange="handleDocUpload(this)">
+                    </div>
+                </div>
+                <div id="student-docs-container" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+            </div>
+
+            <div id="stu-msgs-content" class="hidden">
+                <div id="messaging-container"
+                    style="display: grid; grid-template-columns: 250px 1fr; gap: 1rem; height: 500px; background: #f8fafc; border-radius: 25px; overflow: hidden; border: 1px solid #e2e8f0;">
+                    <div id="contacts-list"
+                        style="background: white; border-right: 1px solid #e2e8f0; overflow-y: auto; padding: 1rem;">
+                        <!-- Liste des contacts injectée -->
+                    </div>
+                    <div id="chat-window" style="display: flex; flex-direction: column; background: white;">
+                        <div id="chat-header"
+                            style="padding: 1rem; border-bottom: 1px solid #e2e8f0; font-weight: 800;">Sélectionnez
+                            un
+                            contact</div>
+                        <div id="chat-messages"
+                            style="flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.8rem;">
+                            <!-- Messages injectés -->
+                        </div>
+                        <form id="chat-input-form" onsubmit="handleSendMessage(event)"
+                            style="padding: 1rem; border-top: 1px solid #e2e8f0; display: flex; gap: 0.5rem;">
+                            <input type="text" id="chat-text-input" placeholder="Votre message..."
+                                style="flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #ddd;" disabled>
+                            <button type="submit" class="btn-primary" style="padding: 10px 20px; border-radius: 10px;"
+                                id="chat-send-btn" disabled><ion-icon name="send"></ion-icon></button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard Propriétaire -->
+    <section id="owner-dashboard" class="dashboard hidden">
+        <div class="container" style="max-width: 1000px; margin: 0 auto;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem; flex-wrap: wrap; gap: 1.5rem;">
+                <div>
+                    <h2 style="font-weight: 800; font-size: 2.2rem; margin: 0;">Salut, Propriétaire ! 👋</h2>
+                    <p style="color: #64748b; margin-top: 0.5rem;">Gérez vos annonces et vos étudiants en un clic.</p>
+                </div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <button class="btn-primary" onclick="showAddListingModal()"
+                        style="display: flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1.5rem; border-radius: 15px; font-weight: 800;">
+                        <ion-icon name="add-circle"></ion-icon> Nouvelle Annonce
+                    </button>
+                    <button onclick="showPaymentConfigModal()"
+                        style="background: white; border: 1px solid #e2e8f0; padding: 0.8rem 1.5rem; border-radius: 15px; color: var(--dark); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-weight: 700; box-shadow: var(--shadow-sm);">
+                        <ion-icon name="settings-outline" style="color: #f59e0b;"></ion-icon> Paiements
+                    </button>
+                    <button onclick="logout()"
+                        style="background: #fff1f2; border: none; padding: 0.8rem 1.5rem; border-radius: 15px; color: #e11d48; cursor: pointer; font-weight: 700;">
+                        <ion-icon name="log-out-outline"></ion-icon>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Onglet Central Premium avec Stats -->
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
+                <div class="glass-panel"
+                    style="background: var(--dark); color: white; padding: 1.5rem; border-radius: 25px; text-align: center;">
+                    <div style="opacity: 0.7; font-size: 0.8rem;">Collecté ce mois</div>
+                    <div id="owner-stat-collecte" style="font-size: 1.5rem; font-weight: 800; margin-top: 5px;">0 GNF
+                    </div>
+                </div>
+                <div class="glass-panel"
+                    style="background: #1e293b; color: white; padding: 1.5rem; border-radius: 25px; text-align: center;">
+                    <div style="opacity: 0.7; font-size: 0.8rem;">Reste à percevoir</div>
+                    <div id="owner-stat-reste"
+                        style="font-size: 1.5rem; font-weight: 800; margin-top: 5px; color: #f87171;">0 GNF</div>
+                </div>
+                <div
+                    style="background: var(--primary); color: white; padding: 1.5rem; border-radius: 25px; display: flex; align-items: center; justify-content: center;">
+                    <a href="etudiants.html"
+                        style="color: white; text-decoration: none; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+                        <ion-icon name="people-outline" style="font-size: 1.5rem;"></ion-icon> GÉRER MES ÉTUDIANTS
+                    </a>
+                </div>
+            </div>
+
+            <div id="owner-listings" class="listings-grid"></div>
+        </div>
+    </section>
+
+    <!-- Modal Ajout Logement -->
+    <div id="add-listing-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeAddListing()">&times;</span>
+            <h3>Ajouter un logement</h3>
+            <form id="add-listing-form" onsubmit="handleAddListing(event)">
+                <input type="text" placeholder="Titre (ex: Chambre à Hafia)" required id="new-title">
+                <select id="new-type" required>
+                    <option value="chamber">Chambre</option>
+                    <option value="apartment">Appartement</option>
+                </select>
+                <input type="number" placeholder="Prix (GNF)" required id="new-price">
+                <select id="new-location" required>
+                    <option value="Hafia">Hafia</option>
+                    <option value="Tata">Tata</option>
+                    <option value="Kouroula">Kouroula</option>
+                    <option value="Pounthioun">Pounthioun</option>
+                </select>
+                <div class="file-upload-container"
+                    style="border: 2px dashed #cbd5e1; padding: 1.5rem; text-align: center; border-radius: 10px; margin-bottom: 1rem; cursor: pointer;"
+                    onclick="document.getElementById('new-image-file').click()">
+                    <ion-icon name="cloud-upload-outline" style="font-size: 2rem; color: var(--primary);"></ion-icon>
+                    <p style="margin: 0.5rem 0; color: var(--gray);">Cliquez pour ajouter une photo</p>
+                    <input type="file" id="new-image-file" accept="image/*" style="display: none;"
+                        onchange="previewImage(this)">
+                    <img id="image-preview" src=""
+                        style="max-width: 100%; max-height: 200px; margin-top: 1rem; border-radius: 10px; display: none; object-fit: cover;">
+                </div>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="new-elec"> Électricité</label>
+                    <label><input type="checkbox" id="new-water"> Eau</label>
+                    <label><input type="checkbox" id="new-wc"> WC Interne</label>
+                </div>
+                <input type="url" value="https://www.google.com/maps"
+                    placeholder="Lien Google Maps (ex: https://goo.gl/maps/...)" id="new-maps"
+                    style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1rem; color: var(--dark); background: var(--light);">
+                <button type="submit" class="btn-primary full-width">Publier</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Configuration Paiement (Propriétaire) -->
+    <div id="payment-config-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal"
+                onclick="document.getElementById('payment-config-modal').classList.add('hidden')">&times;</span>
+            <h3 style="display:flex; align-items:center; gap:0.5rem;"><ion-icon name="wallet-outline"></ion-icon>
+                Vos
+                Moyens de Paiement</h3>
+            <p style="color:#64748b; margin-bottom:1rem;">Renseignez vos numéros pour que les étudiants puissent
+                vous
+                payer.</p>
+            <form id="payment-config-form" onsubmit="handlePaymentConfig(event)">
+                <div class="input-group" style="margin-bottom:1rem;">
+                    <label style="font-weight:600; font-size:0.9rem;">Téléphone (Appels/WhatsApp)</label>
+                    <input type="tel" placeholder="Ex: 620 00 00 00" id="config-phone" required
+                        style="width:100%; padding:0.8rem; border:1px solid #cbd5e1; border-radius:8px; color: black;">
+                </div>
+                <div class="input-group" style="margin-bottom:1rem;">
+                    <label style="font-weight:600; font-size:0.9rem;">Numéro Orange Money / Mobile Money</label>
+                    <input type="tel" placeholder="Ex: 620 00 00 00" id="config-om"
+                        style="width:100%; padding:0.8rem; border:1px solid #cbd5e1; border-radius:8px; color: black;">
+                </div>
+                <button type="submit" class="btn-primary full-width"
+                    style="margin-top:1rem; background: #10b981;">Sauvegarder</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Contact (Étudiant) -->
+    <div id="contact-owner-modal" class="modal hidden">
+        <div class="modal-content" style="text-align:center;">
+            <span class="close-modal"
+                onclick="document.getElementById('contact-owner-modal').classList.add('hidden')">&times;</span>
+            <h3>Contacter le Propriétaire</h3>
+            <div id="owner-contact-info" style="margin-top: 1.5rem;">
+                <!-- Info injectée par JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Modification Profil -->
+    <div id="edit-profile-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close-modal"
+                onclick="document.getElementById('edit-profile-modal').classList.add('hidden')">&times;</span>
+            <h3 style="text-align: center; margin-bottom: 1.5rem;">Modifier mon Profil</h3>
+
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <div onclick="document.getElementById('edit-pic-file').click()"
+                    style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--primary); margin: 0 auto; cursor: pointer; overflow: hidden; position: relative;">
+                    <img id="edit-pic-preview" src="" style="width: 100%; height: 100%; object-fit: cover;">
+                    <div
+                        style="position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.5); color: white; font-size: 0.6rem; padding: 2px 0;">
+                        CHANGER</div>
+                </div>
+                <input type="file" id="edit-pic-file" accept="image/*" style="display: none;"
+                    onchange="previewEditPic(this)">
+            </div>
+
+            <input type="text" id="edit-name" placeholder="Nom complet"
+                style="margin-bottom: 1rem; width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd;">
+            <button onclick="handleUpdateProfile()" class="btn-primary full-width"
+                style="padding: 1rem; border-radius: 10px; font-weight: 800;">Enregistrer les modifications</button>
+        </div>
+    </div>
+
+    <!-- Modal Support / Médiation (Urgence) -->
+    <div id="support-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal"
+                onclick="document.getElementById('support-modal').classList.add('hidden')">&times;</span>
+            <h3 style="color:#e11d48; display:flex; align-items:center; gap:0.5rem;">
+                <ion-icon name="warning-outline"></ion-icon> Centre d'Assistance & Médiation
+            </h3>
+            <p style="margin-bottom:1.5rem; color:#64748b;">Besoin d'aide ou litige avec un propriétaire/étudiant ?
+                Contactez nos intermédiaires.</p>
+            <div id="support-list" style="display:flex; flex-direction:column; gap:1rem;">
+                <!-- Liste injectée -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Bouton SOS Flottant -->
+    <div onclick="showSupportModal()"
+        style="position:fixed; bottom:20px; right:20px; background:#e11d48; color:white; width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 15px rgba(225,29,72,0.4); cursor:pointer; z-index:999; transition: transform 0.2s;"
+        onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+        <ion-icon name="help-buoy-outline" style="font-size:2rem;"></ion-icon>
+    </div>
+
+    <!-- Section Soutien -->
+    <section class="listings-section reveal"
+        style="padding: 1rem 5% 4rem; background: var(--white); border-radius: 50px 50px 0 0; margin-top: 0;">
+        <div class="glass-panel"
+            style="padding: 3rem; border-radius: 35px; text-align: center; border: 2px dashed var(--primary);">
+            <ion-icon name="heart-outline" style="font-size: 4rem; color: #e11d48; margin-bottom: 1rem;"></ion-icon>
+            <h2 style="font-weight: 800; font-size: 2.2rem; margin-bottom: 1rem;">Soutenir CampusHome</h2>
+            <p style="max-width: 600px; margin: 0 auto 2rem; color: var(--gray);">CampusHome est un projet bénévole créé
+                pour faciliter la vie des étudiants de Labé. Si vous appréciez l'initiative, vous pouvez nous aider à
+                maintenir les serveurs et à améliorer l'application.</p>
+
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <button onclick="showDonationModal()" class="btn-primary"
+                    style="padding: 1.2rem 2.5rem; border-radius: 18px; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+                    <ion-icon name="gift-outline" style="font-size: 1.5rem;"></ion-icon>
+                    Faire un Don
+                </button>
+                <a href="https://wa.me/224611760045" target="_blank" class="btn-secondary"
+                    style="padding: 1.2rem 2.5rem; border-radius: 18px; font-weight: 800; text-decoration: none; display: flex; align-items: center; gap: 10px; background: #22c55e; color: white;">
+                    <ion-icon name="logo-whatsapp" style="font-size: 1.5rem;"></ion-icon>
+                    Devenir Partenaire
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modal Don / Soutien -->
+    <div id="donation-modal" class="modal hidden">
+        <div class="modal-content" style="text-align:center; padding: 3rem;">
+            <span class="close-modal"
+                onclick="document.getElementById('donation-modal').classList.add('hidden')">&times;</span>
+            <div
+                style="background: #fff1f2; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+                <ion-icon name="heart" style="font-size: 2.5rem; color: #e11d48;"></ion-icon>
+            </div>
+            <h3 style="font-size: 1.8rem; font-weight: 800;">Merci pour votre soutien !</h3>
+            <p style="color: var(--gray); margin-bottom: 2rem;">Chaque contribution, même petite, nous aide énormément.
+            </p>
+
+            <div
+                style="text-align: left; background: #f8fafc; padding: 1.5rem; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
+                <h4 style="display: flex; align-items: center; gap: 10px; color: #f97316; margin-bottom: 1rem;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Orange_logo.svg/1024px-Orange_logo.svg.png"
+                        style="width: 20px;">
+                    Orange Money
+                </h4>
+                <p style="font-size: 1.3rem; font-weight: 800; letter-spacing: 2px;">+224 611 76 00 45</p>
+                <p style="font-size: 0.8rem; color: var(--gray);">Nom : CampusHome Support</p>
+            </div>
+
+            <div
+                style="text-align: left; background: #fffbeb; padding: 1.5rem; border-radius: 20px; border: 1px solid #fde68a;">
+                <h4 style="display: flex; align-items: center; gap: 10px; color: #f59e0b; margin-bottom: 1rem;">
+                    <ion-icon name="flash" style="color: #f59e0b;"></ion-icon>
+                    Areeba (MTN)
+                </h4>
+                <p style="font-size: 1.3rem; font-weight: 800; letter-spacing: 2px;">+224 663 52 35 12</p>
+                <p style="font-size: 0.8rem; color: var(--gray);">Nom : CampusHome Support</p>
+            </div>
+
+            <button onclick="document.getElementById('donation-modal').classList.add('hidden')"
+                class="btn-primary full-width" style="margin-top: 2rem; padding: 1rem; border-radius: 12px;">C'est noté,
+                merci !</button>
+        </div>
+    </div>
+
+    <!-- Modal Avis à la Sortie -->
+    <div id="review-departure-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 500px; text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">✨</div>
+            <h3 style="font-weight: 800; margin-bottom: 1rem;">Merci de votre confiance !</h3>
+            <p style="color: var(--gray); margin-bottom: 2rem;">Avant de partir, pourriez-vous laisser un avis sur votre
+                expérience dans ce logement ? Cela aidera beaucoup les autres étudiants.</p>
+
+            <div class="rating-input"
+                style="font-size: 2.5rem; color: #f59e0b; margin-bottom: 1.5rem; display: flex; justify-content: center; gap: 10px;">
+                <ion-icon name="star-outline" onclick="setRating(1)" class="star-btn" data-val="1"></ion-icon>
+                <ion-icon name="star-outline" onclick="setRating(2)" class="star-btn" data-val="2"></ion-icon>
+                <ion-icon name="star-outline" onclick="setRating(3)" class="star-btn" data-val="3"></ion-icon>
+                <ion-icon name="star-outline" onclick="setRating(4)" class="star-btn" data-val="4"></ion-icon>
+                <ion-icon name="star-outline" onclick="setRating(5)" class="star-btn" data-val="5"></ion-icon>
+            </div>
+
+            <textarea id="review-text"
+                placeholder="Qu'avez-vous pensé du logement, du quartier et de l'accueil ? (Optionnel)"
+                style="width: 100%; height: 100px; padding: 15px; border-radius: 15px; border: 1px solid #ddd; margin-bottom: 1.5rem; font-family: inherit;"></textarea>
+
+            <div style="display: flex; gap: 1rem;">
+                <button onclick="skipReview()" class="btn-secondary"
+                    style="flex: 1; padding: 1rem; border-radius: 15px; border: 1px solid #ddd; cursor: pointer;">Plus
+                    tard</button>
+                <button onclick="submitFinalReview()" class="btn-primary"
+                    style="flex: 1; padding: 1rem; border-radius: 15px; font-weight: 800;">Publier l'avis</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 CampusHome. Fait avec ❤️ pour les étudiants de l'Université de Labé.</p>
+        <p style="font-size: 0.8rem; margin-top: 10px; opacity: 0.7;">
+            Version 1.0.5 • <a href="#" onclick="checkForUpdates()"
+                style="color: white; text-decoration: underline;">Vérifier les mises à jour</a>
+        </p>
+    </footer>
+
+    <!-- Modal Récupération Mot de Passe -->
+    <div id="recovery-modal" class="modal hidden">
+        <div class="modal-content glass-panel"
+            style="border-radius: 35px; border: 1px solid white; max-width: 400px; padding: 2rem; position: relative;">
+            <span class="close-modal" onclick="closeRecovery()"
+                style="position: absolute; top: 20px; right: 20px; font-size: 1.5rem; cursor: pointer;">&times;</span>
+
+            <div id="recovery-step-1">
+                <h3 style="margin-bottom: 1.5rem; text-align: center; font-weight: 800;">Récupération de compte</h3>
+                <p style="font-size: 0.85rem; color: #64748b; text-align: center; margin-bottom: 2rem;">
+                    Saisissez l'email et le téléphone liés à votre compte.
+                </p>
+                <form onsubmit="handleRecoveryVerify(event)">
+                    <div class="input-group"
+                        style="background: #f1f5f9; margin-bottom: 1rem; border: none; padding: 0.5rem 1rem;">
+                        <ion-icon name="mail-outline"></ion-icon>
+                        <input type="email" placeholder="Email" required id="recovery-email"
+                            style="background:none; border:none; margin:0; width: 100%;">
+                    </div>
+                    <div class="input-group"
+                        style="background: #f1f5f9; margin-bottom: 2rem; border: none; padding: 0.5rem 1rem;">
+                        <ion-icon name="call-outline"></ion-icon>
+                        <input type="tel" placeholder="Numéro de téléphone" required id="recovery-phone"
+                            style="background:none; border:none; margin:0; width: 100%;">
+                    </div>
+                    <button type="submit" class="btn-primary full-width"
+                        style="padding: 1.2rem; border-radius: 15px; font-weight: 800;">Vérifier</button>
+                </form>
+            </div>
+
+            <div id="recovery-step-2" class="hidden">
+                <h3 style="margin-bottom: 1.5rem; text-align: center; font-weight: 800;">Nouveau mot de passe</h3>
+                <p style="font-size: 0.85rem; color: #64748b; text-align: center; margin-bottom: 2rem;">
+                    Identité confirmée ! Veuillez choisir un nouveau mot de passe.
+                </p>
+                <form onsubmit="handlePasswordReset(event)">
+                    <div class="input-group"
+                        style="background: #f1f5f9; margin-bottom: 2rem; border: none; padding: 0.5rem 1rem;">
+                        <ion-icon name="lock-closed-outline"></ion-icon>
+                        <input type="password" placeholder="Nouveau mot de passe" required id="recovery-new-pass"
+                            style="background:none; border:none; margin:0; width: 100%;">
+                    </div>
+                    <button type="submit" class="btn-primary full-width"
+                        style="padding: 1.2rem; border-radius: 15px; font-weight: 800;">Réinitialiser</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation (Mobile Only) -->
+    <nav class="bottom-nav">
+        <a href="#accueil" class="nav-item active" onclick="showStudentView()">
+            <ion-icon name="home-outline"></ion-icon>
+            <span>Accueil</span>
+        </a>
+        <a href="#logements" class="nav-item">
+            <ion-icon name="search-outline"></ion-icon>
+            <span>Trouver</span>
+        </a>
+        <a href="#" class="nav-item" id="mobile-profile-item" onclick="handleMobileProfileClick()">
+            <ion-icon name="person-outline"></ion-icon>
+            <span>Profil</span>
+        </a>
+    </nav>
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>

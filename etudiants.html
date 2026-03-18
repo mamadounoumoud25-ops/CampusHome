@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CampusHome">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/609/609803.png">
+    <title>Étudiants inscrits - CampusHome</title>
+
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background-color: var(--light);
+            background-image: var(--bg-mesh);
+            min-height: 100vh;
+            color: var(--dark);
+        }
+
+        .header-premium {
+            background: var(--white);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 1.2rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .container-premium {
+            width: 95%;
+            max-width: 900px;
+            margin: 3rem auto;
+            background: var(--white);
+            padding: 2.5rem;
+            border-radius: 30px;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #students-list li {
+            background: var(--light);
+            margin-bottom: 1rem;
+            padding: 1.5rem;
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        [data-theme="dark"] #students-list li {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        #students-list li:hover {
+            transform: translateX(10px);
+            box-shadow: var(--shadow-sm);
+            border-color: var(--primary);
+        }
+
+        .btn-action-sm {
+            padding: 8px 15px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border: none;
+            font-size: 0.85rem;
+        }
+
+        .btn-pay {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+        }
+
+        .btn-config {
+            background: var(--light);
+            color: var(--dark);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] .btn-config {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-del {
+            background: #fff1f2;
+            color: #e11d48;
+        }
+
+        [data-theme="dark"] .btn-del {
+            background: rgba(225, 29, 72, 0.1);
+        }
+
+        .btn-pay:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .header-premium {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .container-premium {
+                width: 98%;
+                padding: 1.5rem;
+                margin: 1.5rem auto;
+                border-radius: 20px;
+            }
+
+            #students-list li {
+                flex-direction: column !important;
+                gap: 1.5rem;
+                padding: 1.2rem;
+                align-items: flex-start !important;
+            }
+
+            .btn-action-sm {
+                width: 100%;
+                justify-content: center;
+                height: 48px;
+                font-size: 1rem;
+            }
+
+            /* Table to Cards Transformation */
+            .table-responsive table,
+            .table-responsive thead,
+            .table-responsive tbody,
+            .table-responsive th,
+            .table-responsive td,
+            .table-responsive tr {
+                display: block;
+            }
+
+            .table-responsive thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+
+            .table-responsive tr {
+                border: 1px solid #eee;
+                margin-bottom: 1.5rem;
+                padding: 1rem;
+                border-radius: 15px;
+                background: var(--white);
+                box-shadow: var(--shadow-sm);
+            }
+
+            .table-responsive td {
+                border: none;
+                border-bottom: 1px solid #f1f5f9;
+                position: relative;
+                padding-left: 50%;
+                text-align: right;
+                padding-top: 0.8rem;
+                padding-bottom: 0.8rem;
+            }
+
+            .table-responsive td:last-child {
+                border-bottom: none;
+            }
+
+            .table-responsive td:before {
+                position: absolute;
+                top: 0.8rem;
+                left: 0.5rem;
+                width: 45%;
+                padding-right: 10px;
+                white-space: nowrap;
+                text-align: left;
+                font-weight: 800;
+                color: var(--primary);
+            }
+
+            .table-responsive td:nth-of-type(1):before {
+                content: "Étudiant";
+            }
+
+            .table-responsive td:nth-of-type(2):before {
+                content: "Logement";
+            }
+
+            .table-responsive td:nth-of-type(3):before {
+                content: "Paiement";
+            }
+
+            .table-responsive td:nth-of-type(4):before {
+                content: "Actions";
+            }
+        }
+    </style>
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+</head>
+
+<body class="fade-in">
+
+    <header class="header-premium">
+        <div class="logo">
+            <ion-icon name="home-outline"></ion-icon>
+            <span>CampusHome</span>
+        </div>
+        <nav style="display: flex; align-items: center; gap: 1rem;">
+            <div class="theme-toggle" onclick="toggleTheme()"
+                style="cursor: pointer; font-size: 1.5rem; display: flex; align-items: center; color: var(--gray);">
+                <ion-icon name="moon-outline" id="theme-icon"></ion-icon>
+            </div>
+            <a href="index.html" class="btn-action-sm btn-config" style="text-decoration:none;">
+                <ion-icon name="arrow-back-outline"></ion-icon> Quitter
+            </a>
+        </nav>
+    </header>
+
+    <div class="container-premium fade-in">
+        <h2 style="font-weight:800; font-size:2rem; margin-bottom:2.5rem; color: var(--dark);">Gestion des Étudiants
+        </h2>
+        <div id="students-list"></div>
+        <p id="no-data"
+            style="text-align:center; color: var(--gray); display:none; padding:3rem; border:2px dashed var(--gray); border-radius:30px; opacity: 0.5;">
+            Aucun étudiant inscrit pour le moment.
+        </p>
+    </div>
+
+    <!-- Script Backend -->
+    <script src="data.js"></script>
+
+    <!-- Script Page -->
+    <script>
+        // Utilitaire pour éviter les injections XSS
+        function escapeHTML(str) {
+            if (!str) return "";
+            return str.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Utilisation du Backend (data.js)
+        const currentUserEmail = localStorage.getItem('campus_current_email');
+        const currentUser = localStorage.getItem('campus_current_role');
+
+        if (!currentUser || (currentUser !== 'owner' && currentUser !== 'admin')) {
+            alert("Accès refusé. Vous devez être connecté en tant que propriétaire pour accéder à cette page.");
+            window.location.href = 'index.html';
+        }
+
+        console.log("Email connecté:", currentUserEmail);
+        console.log("Rôle connecté:", currentUser);
+
+        let students = [];
+        if (currentUser === 'admin') {
+            students = db.getStudents();
+        } else if (currentUser === 'owner' && currentUserEmail) {
+            students = db.getStudentsByOwner(currentUserEmail);
+        }
+
+        console.log("Étudiants trouvés:", students);
+
+        // Données de secours si vide (Mock)
+        if (students.length === 0) {
+            document.getElementById('no-data').style.display = 'block';
+        }
+
+        const list = document.getElementById("students-list");
+
+        // Créer l'en-tête de la table pour les grands écrans
+        if (students.length > 0) {
+            const tableContainer = document.createElement('div');
+            tableContainer.className = 'table-responsive';
+            tableContainer.style.overflowX = 'auto';
+            tableContainer.style.marginTop = '1rem';
+
+            const table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            table.innerHTML = `
+                <thead>
+                    <tr style="text-align: left; border-bottom: 2px solid #f1f5f9;">
+                        <th style="padding: 1rem;">Étudiant</th>
+                        <th style="padding: 1rem;">Logement</th>
+                        <th style="padding: 1rem;">Paiement</th>
+                        <th style="padding: 1rem;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="students-table-body"></tbody>
+            `;
+            list.appendChild(tableContainer);
+            tableContainer.appendChild(table);
+            const tbody = document.getElementById('students-table-body');
+
+            students.forEach(student => {
+                const displayName = student.name || (student.prenom + " " + student.nom);
+                const profilePic = student.profilePic || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff`;
+                const filiere = student.filiere || 'Non renseignée';
+                const phone = student.phone || 'Non renseigné';
+
+                // Info logement
+                const log = db.getLogements().find(l => l.id == student.currentLogementId);
+                const logTitle = log ? log.titre : 'Non assigné';
+
+                // Calculs financiers
+                const loyer = student.loyerTotal || 0;
+                const paye = student.montantPaye || 0;
+                const reste = student.resteAPayer || 0;
+
+                // Historique des paiements
+                const history = student.paiementsHistory || [];
+                const historyList = history.length > 0 ? history.map(p => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.03); padding:4px 8px; border-radius:6px; margin-top:3px; font-size:0.7rem;">
+                        <span>${p.date} : <strong>${p.montant.toLocaleString()} GNF</strong></span>
+                        <button onclick="downloadReceipt(${p.id}, ${p.montant}, '${p.date}', '${displayName.replace(/'/g, "\\'")}', '${logTitle.replace(/'/g, "\\'")}')" 
+                                class="btn-action-sm btn-config" style="padding:2px 6px; font-size:0.6rem;">
+                            Reçu
+                        </button>
+                    </div>
+                `).join('') : '<p style="font-size:0.7rem; color:var(--gray); margin-top:3px;">Aucun paiement.</p>';
+
+                // Badge statut paiement
+                let statusBadge = '';
+                if (loyer === 0) statusBadge = '<span class="status-badge" style="background:#64748b; color:white;">Loyer non défini</span>';
+                else if (reste <= 0) statusBadge = '<span class="status-badge" style="background:#10b981; color:white;">✅ Payé</span>';
+                else statusBadge = `<span class="status-badge" style="background:#f43f5e; color:white;">Reste: ${reste.toLocaleString()} GNF</span>`;
+
+                const tr = document.createElement("tr");
+                tr.style.borderBottom = '1px solid #f1f5f9';
+                tr.innerHTML = `
+                    <td style="padding: 1rem; display: flex; align-items: center; gap: 10px;">
+                        <img src="${profilePic}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #f1f5f9;">
+                        <div>
+                            <div style="font-weight: 700;">${escapeHTML(displayName)}</div>
+                            <div style="font-size: 0.75rem; color: var(--primary); font-weight: 600;">${escapeHTML(filiere)}</div>
+                            <div style="font-size: 0.75rem; color: var(--gray);"><a href="tel:${phone}" style="color:inherit; text-decoration:none;">📞 ${escapeHTML(phone)}</a></div>
+                        </div>
+                    </td>
+                    <td style="padding: 1rem;">
+                        <div style="font-weight: 600;">${escapeHTML(logTitle)}</div>
+                    </td>
+                    <td style="padding: 1rem;">
+                        <div>${statusBadge}</div>
+                        <div style="margin-top: 8px;">
+                            <h5 style="font-size:0.65rem; text-transform:uppercase; color:var(--gray); margin-bottom:4px;">Historique</h5>
+                            ${historyList}
+                        </div>
+                    </td>
+                    <td style="padding: 1rem;">
+                        <div style="display:flex; gap:0.5rem; flex-wrap: wrap;">
+                            <button onclick="definirLoyer('${student.email}')" class="btn-action-sm btn-config" title="Fixer le loyer">
+                                <ion-icon name="settings-outline"></ion-icon>
+                            </button>
+                            <button onclick="ajoutPaiement('${student.email}')" class="btn-action-sm btn-pay" title="Ajouter un paiement">
+                                <ion-icon name="card-outline"></ion-icon> Payer
+                            </button>
+                            <button onclick="supprimerEtudiant('${student.email}')" class="btn-action-sm btn-del" title="Supprimer">
+                                <ion-icon name="trash-outline"></ion-icon>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- THEME ---
+        function initTheme() {
+            const savedTheme = localStorage.getItem('campus_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const icon = document.getElementById('theme-icon');
+            if (icon) icon.name = savedTheme === 'dark' ? 'sunny-outline' : 'moon-outline';
+        }
+
+        window.toggleTheme = function () {
+            const current = document.documentElement.getAttribute('data-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('campus_theme', newTheme);
+            const icon = document.getElementById('theme-icon');
+            if (icon) icon.name = newTheme === 'dark' ? 'sunny-outline' : 'moon-outline';
+        }
+
+        // --- REÇU ---
+        window.downloadReceipt = function (id, montant, date, studentName, logTitle) {
+            const receiptHTML = `
+                <html>
+                <head>
+                    <title>Reçu CampusHome</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 40px; }
+                        .receipt { border: 2px solid #6366f1; padding: 30px; border-radius: 20px; max-width: 500px; margin: auto; }
+                        .header { text-align: center; color: #6366f1; margin-bottom: 20px; }
+                        .detail { margin: 10px 0; font-size: 1.2rem; }
+                        .footer { text-align: center; margin-top: 30px; font-size: 0.8rem; color: #64748b; }
+                        .btn-print { display: block; width: 100%; background: #6366f1; color: white; border: none; padding: 10px; margin-top: 20px; border-radius: 5px; cursor: pointer; }
+                        @media print { .btn-print { display: none; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="receipt">
+                        <div class="header">
+                            <h1>REÇU DE LOYER</h1>
+                            <p>CampusHome - Labé</p>
+                        </div>
+                        <div class="detail"><strong>Étudiant :</strong> ${studentName}</div>
+                        <div class="detail"><strong>Logement :</strong> ${logTitle}</div>
+                        <div class="detail"><strong>Montant :</strong> ${montant.toLocaleString()} GNF</div>
+                        <div class="detail"><strong>Date :</strong> ${date}</div>
+                        <div class="detail"><strong>Statut :</strong> ✅ Confirmé</div>
+                        <hr style="margin: 20px 0; opacity: 0.2;">
+                        <div class="footer">
+                            Généré automatiquement par CampusHome le ${new Date().toLocaleDateString()}<br>
+                            Merci de votre confiance.
+                        </div>
+                        <button class="btn-print" onclick="window.print()">Imprimer / Sauvegarder PDF</button>
+                    </div>
+                </body>
+                </html>
+            `;
+            const win = window.open('', '_blank');
+            win.document.write(receiptHTML);
+            win.document.close();
+        }
+
+        initTheme();
+
+        // Fonctions de gestion
+        window.definirLoyer = function (email) {
+            const montant = prompt("Quel est le montant TOTAL du loyer pour cet étudiant ? (GNF)");
+            if (montant && !isNaN(montant)) {
+                if (db.setLoyer(email, montant, currentUserEmail)) {
+                    location.reload();
+                } else {
+                    alert("Erreur : Non autorisé ou étudiant non trouvé.");
+                }
+            } else if (montant) {
+                alert("Veuillez entrer un nombre valide.");
+            }
+        };
+
+        window.ajoutPaiement = function (email) {
+            const montant = prompt("Montant versé aujourd'hui ? (GNF)");
+            if (montant && !isNaN(montant)) {
+                if (db.addPaiement(email, montant, currentUserEmail)) {
+                    // Notification à l'étudiant
+                    db.addNotification(email, {
+                        text: `Votre paiement de ${parseInt(montant).toLocaleString()} GNF a été validé. Merci !`,
+                        type: 'payment'
+                    });
+                    location.reload();
+                } else {
+                    alert("Erreur : Non autorisé.");
+                }
+            } else if (montant) {
+                alert("Veuillez entrer un nombre valide.");
+            }
+        };
+
+        window.supprimerEtudiant = function (email) {
+            if (confirm("Êtes-vous sûr de vouloir retirer cet étudiant du logement ?")) {
+                if (db.quitterLogement(email, currentUserEmail)) {
+                    location.reload();
+                } else {
+                    alert("Erreur : Non autorisé.");
+                }
+            }
+        };
+    </script>
+
+</body>
+
+</html>
