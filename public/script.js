@@ -8,12 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof initScrollReveal === 'function') initScrollReveal();
     
     await restoreSession();
-    if (!currentUser) {
-        openAuth();
-        const closeBtn = document.querySelector('.close-modal');
-        if (closeBtn) closeBtn.style.display = 'none';
-        showStudentView();
-    }
+    showStudentView();
     
     // Charger les logements initiaux si on est sur la vue publique
     if (!currentUser || currentUser === 'student') {

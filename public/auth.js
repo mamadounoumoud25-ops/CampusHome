@@ -120,7 +120,6 @@ function openAuth() {
 }
 
 function closeAuth() {
-    if (!currentUser) return; 
     document.getElementById('auth-modal').classList.add('hidden');
     const preview = document.getElementById('signup-pic-preview');
     const icon = document.getElementById('signup-pic-icon');
