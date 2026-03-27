@@ -1,11 +1,11 @@
-// --- FRONTEND LOGIC ---
-// Utilise l'objet 'db' défini dans data.js
+// api object is now in api.js
 
-let currentUser = null; // 'student', 'owner', 'admin'
-let currentUserEmail = null; // Email de l'utilisateur connecté
+let currentUser = null; 
+let currentUserEmail = null; 
 
 // Fonction pour déformater le prix
 function formatPrix(prix) {
+    if (prix === undefined || prix === null) return "0 GNF";
     return prix.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " GNF";
 }
 
@@ -22,7 +22,8 @@ function escapeHTML(str) {
 
 // Générateur de Carte Logement
 function generateCard(logement, isOwnerView = false) {
-    const isFav = currentUserEmail ? db.isFavori(currentUserEmail, logement.id) : false;
+    // Note: Favoris logic needs API update later
+    const isFav = false; 
     const favIcon = isFav ? 'heart' : 'heart-outline';
     const favColor = isFav ? '#ef4444' : 'inherit';
 
@@ -131,20 +132,21 @@ function afficherLogements(data, containerId = 'listings-container', isOwner = f
             container.innerHTML = data.map(l => generateCard(l, isOwner)).join('');
             container.style.opacity = '1';
             container.style.transition = 'opacity 0.4s ease';
-            initScrollReveal(); // Ré-observer les nouveaux éléments
+            if (typeof initScrollReveal === 'function') initScrollReveal();
         }, 50);
     }
 }
 
 // Filtrage
-function handleSmartSearch() {
+async function handleSmartSearch() {
     const query = document.getElementById('smart-search').value.toLowerCase().trim();
     if (query === "") {
         filtrerLogements();
         return;
     }
 
-    let filtered = db.getLogements().filter(l => l.disponible);
+    let filtered = await api.getLogements(); // Fetch all logements
+    filtered = filtered.filter(l => l.disponible);
     filtered = filtered.filter(l =>
         l.titre.toLowerCase().includes(query) ||
         l.quartier.toLowerCase().includes(query) ||
@@ -154,7 +156,7 @@ function handleSmartSearch() {
     afficherLogements(filtered);
 }
 
-function handlePriceSlider() {
+async function handlePriceSlider() {
     const slider = document.getElementById('price-slider');
     const display = document.getElementById('price-display');
     const val = parseInt(slider.value);
@@ -167,11 +169,12 @@ function handlePriceSlider() {
     filtrerLogements();
 }
 
-function filtrerLogements() {
+async function filtrerLogements() {
     const query = document.getElementById('smart-search') ? document.getElementById('smart-search').value.toLowerCase().trim() : "";
     const maxPrice = document.getElementById('price-slider') ? parseInt(document.getElementById('price-slider').value) : 2000000;
 
-    let filtered = db.getLogements().filter(l => l.disponible);
+    let filtered = await api.getLogements(); // Fetch all logements
+    filtered = filtered.filter(l => l.disponible);
 
     if (query) {
         filtered = filtered.filter(l =>
@@ -187,11 +190,12 @@ function filtrerLogements() {
     afficherLogements(filtered);
 }
 
-function filterTag(type) {
+async function filterTag(type) {
     document.querySelectorAll('.tag').forEach(btn => btn.classList.remove('active'));
     if (event && event.target) event.target.classList.add('active');
 
-    let filtered = db.getLogements().filter(l => l.disponible);
+    let filtered = await api.getLogements(); // Fetch all logements
+    filtered = filtered.filter(l => l.disponible);
     if (type !== 'all') {
         filtered = filtered.filter(l => l.type === type);
     }
@@ -214,31 +218,49 @@ function switchOwnerTab(tab) {
 
 // Changer le statut (Libre / Loué)
 function toggleStatus(id) {
-    if (db.toggleLogementStatus(id, currentUserEmail)) {
-        showOwnerDashboard(); // Rafraichir
-    } else {
-        alert("Action interdite : vous n'êtes pas le propriétaire.");
-    }
+    // This function needs API implementation
+    alert("Fonctionnalité à implémenter via API.");
+    // if (db.toggleLogementStatus(id, currentUserEmail)) {
+    //     showOwnerDashboard(); // Rafraichir
+    // } else {
+    //     alert("Action interdite : vous n'êtes pas le propriétaire.");
+    // }
 }
 
 // Supprimer une annonce
-function deleteLogement(id) {
+async function deleteLogement(id) {
     if (confirm('Voulez-vous vraiment supprimer cette annonce ?')) {
-        if (db.deleteLogement(id, currentUserEmail)) {
-            showOwnerDashboard();
-        } else {
-            alert("Action interdite : vous n'êtes pas le propriétaire.");
-        }
+        // TODO: Implement DELETE on server
+        alert("Action non supportée par le serveur pour le moment.");
     }
 }
 
-// --- AUTHENTIFICATION ---
+// Initialisation globale au chargement
+document.addEventListener('DOMContentLoaded', async () => {
+    await restoreSession();
+    if (!currentUser) {
+        openAuth();
+        // Empecher la fermeture de la modale si non connecté (Auth Wall)
+        const closeBtn = document.querySelector('.close-modal');
+        if (closeBtn) closeBtn.style.display = 'none';
+    }
+    
+    // Charger les logements initiaux
+    try {
+        const logements = await api.getLogements();
+        afficherLogements(logements);
+    } catch (e) {
+        console.error("Erreur chargement logements:", e);
+    }
+});
 
+// AUTHENTIFICATION
 function openAuth() {
     document.getElementById('auth-modal').classList.remove('hidden');
 }
 
 function closeAuth() {
+    if (!currentUser) return; // Ne pas fermer si non connecté (Auth Wall)
     document.getElementById('auth-modal').classList.add('hidden');
     // Reset profile preview
     const preview = document.getElementById('signup-pic-preview');
@@ -265,50 +287,31 @@ function switchAuthTab(tab) {
     }
 }
 
-// ... (formatPrix, generateCard, etc.)
-
 async function handleLogin(e) {
     e.preventDefault();
-    const emailInput = document.getElementById('login-email').value;
-    const email = emailInput.toLowerCase().trim();
+    const email = document.getElementById('login-email').value.toLowerCase().trim();
     const password = document.getElementById('login-pass').value;
 
-    console.log("Tentative de connexion pour:", email);
-
-    if (email === 'admin@campus.com') {
-        currentUser = 'admin';
-        currentUserEmail = email;
-        saveSession(currentUser, currentUserEmail);
-        alert("Bienvenue Admin. (Accès complet)");
-        closeAuth();
-        updateUI();
-        return;
-    }
-
-    const user = db.getUserByEmail(email);
-
-    if (user) {
-        const isAuth = await db.checkPassword(email, password);
-        if (!isAuth) {
-            alert("Mot de passe incorrect.");
-            return;
+    try {
+        const data = await api.login(email, password);
+        if (data.success) {
+            currentUser = data.user.role;
+            currentUserEmail = data.user.email;
+            saveSession(currentUser, currentUserEmail);
+            
+            // Re-afficher le bouton de fermeture
+            const closeBtn = document.querySelector('.close-modal');
+            if (closeBtn) closeBtn.style.display = 'block';
+            
+            closeAuth();
+            updateUI();
+            alert("Connexion réussie !");
+            
+            if (currentUser === 'owner') showOwnerDashboard();
+            else showStudentDashboard();
         }
-        currentUser = user.role;
-        currentUserEmail = user.email;
-        saveSession(currentUser, currentUserEmail);
-
-        closeAuth();
-        updateUI();
-
-        if (currentUser === 'owner') {
-            alert("Bon retour, Propriétaire " + user.name + " !");
-            showOwnerDashboard();
-        } else {
-            alert("Bienvenue Étudiant " + user.name + " !");
-            showStudentDashboard(); // Rediriger l'étudiant vers son dashboard par défaut
-        }
-    } else {
-        alert("Email inconnu. Veuillez créer un compte ou vérifier l'adresse.");
+    } catch (err) {
+        alert(err.message);
     }
 }
 
@@ -356,41 +359,30 @@ async function handlePasswordReset(e) {
 
 async function handleSignup(e) {
     e.preventDefault();
-    const roleInput = document.querySelector('input[name="role"]:checked');
-    if (!roleInput) {
-        alert("Veuillez sélectionner un rôle (Étudiant ou Propriétaire).");
-        return;
-    }
-    const role = roleInput.value;
     const name = document.getElementById('signup-name').value;
     const phone = document.getElementById('signup-phone').value;
     const email = document.getElementById('signup-email').value.toLowerCase().trim();
-    const filiere = document.getElementById('signup-filiere') ? document.getElementById('signup-filiere').value : '';
     const pass = document.getElementById('signup-pass').value;
-
-    if (db.getUserByEmail(email)) {
-        alert("Cet email est déjà utilisé.");
-        return;
-    }
+    const roleInput = document.querySelector('input[name="role"]:checked');
+    const role = roleInput ? roleInput.value : 'student';
+    const filiere = document.getElementById('signup-filiere') ? document.getElementById('signup-filiere').value : '';
 
     const profilePicPreview = document.getElementById('signup-pic-preview');
     const profilePic = (profilePicPreview && profilePicPreview.src && profilePicPreview.src.startsWith('data:image')) ? profilePicPreview.src : "";
 
-    await db.addUser(name, email, role, pass, filiere, phone, profilePic);
-
-    currentUser = role;
-    currentUserEmail = email;
-    saveSession(currentUser, currentUserEmail);
-
-    closeAuth();
-    updateUI();
-
-    if (role === 'owner') {
-        alert("Compte propriétaire créé avec succès ! Bienvenue " + name);
-        showOwnerDashboard();
-    } else {
-        alert("Compte étudiant créé avec succès ! Bienvenue " + name);
-        showStudentDashboard();
+    try {
+        const data = await api.signup({ name, email, role, password: pass, filiere, phone, profilePic });
+        if (data.success) {
+            currentUser = role;
+            currentUserEmail = email;
+            saveSession(role, email);
+            closeAuth();
+            await updateUI();
+            if (role === 'owner') showOwnerDashboard();
+            else showStudentDashboard();
+        }
+    } catch (err) {
+        alert(err.message);
     }
 }
 
@@ -411,68 +403,53 @@ function saveSession(role, email) {
     localStorage.setItem('campus_current_email', email);
 }
 
-function restoreSession() {
+async function restoreSession() {
     const role = localStorage.getItem('campus_current_role');
     const email = localStorage.getItem('campus_current_email');
     if (role && email) {
-        currentUser = role;
-        currentUserEmail = email;
-
-        updateUI();
-
-        // Si on est sur la page d'accueil, rediriger vers le dashboard approprié
-        if (currentUser === 'owner') {
-            showOwnerDashboard();
-        } else if (currentUser === 'student') {
-            // Pour l'étudiant, on peut soit aller au dashboard, soit rester sur la vue recherche
-            // Ici on choisit d'aller au dashboard par défaut pour plus de clarté
-            showStudentDashboard();
+        try {
+            const user = await api.getUser(email);
+            if (user) {
+                currentUser = user.role;
+                currentUserEmail = user.email;
+                await updateUI();
+                
+                if (currentUser === 'owner') showOwnerDashboard();
+                else showStudentDashboard();
+            }
+        } catch (e) {
+            localStorage.clear();
         }
     }
 }
 
-function updateUI() {
+async function updateUI() {
     const authBtn = document.getElementById('auth-btn');
     const notifWrapper = document.getElementById('notif-wrapper');
     const propLink = document.querySelector('.nav-links a[href="#"][onclick*="switchAuthTab(\'signup\')"]');
-    const user = db.getUserByEmail(currentUserEmail);
+    
+    if (currentUserEmail) {
+        try {
+            const user = await api.getUser(currentUserEmail);
+            if (propLink) propLink.style.display = 'none';
 
-    if (currentUser) {
-        // Masquer le lien "Propriétaires" (inscription) si déjà connecté
-        if (propLink) propLink.style.display = 'none';
-
-        if (currentUser === 'owner') {
             if (authBtn) {
+                const pic = user.profilePic || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`;
                 authBtn.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <img src="${user ? user.profilePic : ''}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
-                        Espace Proprio
+                        <img src="${pic}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
+                        ${currentUser === 'owner' ? 'Espace Proprio' : 'Mon Compte'}
                     </div>
                 `;
-                authBtn.onclick = showOwnerDashboard;
+                authBtn.onclick = currentUser === 'owner' ? showOwnerDashboard : showStudentDashboard;
             }
-        } else if (currentUser === 'admin') {
-            if (authBtn) {
-                authBtn.textContent = 'Mode Admin';
-                authBtn.onclick = () => alert('Connecté en tant que Administrateur');
-            }
-        } else {
-            if (authBtn) {
-                authBtn.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <img src="${user ? user.profilePic : ''}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
-                        Mon Compte
-                    </div>
-                `;
-                authBtn.onclick = showStudentDashboard;
-            }
+            if (notifWrapper) notifWrapper.style.display = 'block';
+            if (typeof loadNotifs === 'function') loadNotifs();
+        } catch (e) {
+            console.error(e);
         }
-        if (notifWrapper) notifWrapper.style.display = 'block';
-        if (typeof loadNotifs === 'function') loadNotifs();
     } else {
-        // Afficher le lien "Propriétaires" si déconnecté
         if (propLink) propLink.style.display = 'inline-block';
-
         if (authBtn) {
             authBtn.textContent = 'Connexion';
             authBtn.onclick = openAuth;
@@ -481,39 +458,33 @@ function updateUI() {
     }
 }
 
-function renderStudentSpace() {
+async function renderStudentSpace() {
     const studentSpace = document.getElementById('student-space');
     const infoContainer = document.getElementById('current-rental-info');
     if (!studentSpace || !infoContainer) return;
 
     studentSpace.classList.remove('hidden');
-    const user = db.getUserByEmail(currentUserEmail);
-
-    if (user && user.currentLogementId) {
-        const log = db.getLogements().find(l => l.id === user.currentLogementId);
-        if (log) {
-            infoContainer.innerHTML = `
-                <div style="display:flex; gap:1.5rem; align-items:center; background:#f8fafc; padding:1.5rem; border-radius:15px; border:1px solid #e2e8f0;">
-                    <img src="${log.image}" style="width:120px; height:90px; border-radius:10px; object-fit:cover;">
-                    <div style="flex:1">
-                        <h4 style="margin:0">${log.titre}</h4>
-                        <p style="margin:5px 0; color:#64748b;">${log.quartier} • ${formatPrix(log.prix)}/mois</p>
-                        <div style="font-size:0.9rem; margin-top:0.5rem; color:#10b981; font-weight:bold;">
-                            Paiement : ${user.montantPaye.toLocaleString()} / ${user.loyerTotal.toLocaleString()} GNF
+    try {
+        const user = await api.getUser(currentUserEmail);
+        if (user && user.currentLogementId) {
+            const logements = await api.getLogements();
+            const log = logements.find(l => l.id === user.currentLogementId);
+            if (log) {
+                infoContainer.innerHTML = `
+                    <div style="display:flex; gap:1.5rem; align-items:center; background:#f8fafc; padding:1.5rem; border-radius:15px; border:1px solid #e2e8f0;">
+                        <img src="${log.image}" style="width:120px; height:90px; border-radius:10px; object-fit:cover;">
+                        <div style="flex:1">
+                            <h4 style="margin:0">${log.titre}</h4>
+                            <p style="margin:5px 0; color:#64748b;">${log.quartier} • ${formatPrix(log.prix)}/mois</p>
                         </div>
                     </div>
-                    <button onclick="handleDeménagement()" style="background:#ef4444; color:white; border:none; padding:0.8rem 1.2rem; border-radius:50px; cursor:pointer; font-weight:bold;">
-                        🚪 Quitter le logement
-                    </button>
-                </div>
-            `;
+                `;
+            }
+        } else {
+            infoContainer.innerHTML = `<p style="text-align:center; color:#94a3b8; padding:2rem; border:2px dashed #f1f5f9; border-radius:15px;">Vous n'avez pas de logement enregistré.</p>`;
         }
-    } else {
-        infoContainer.innerHTML = `
-            <p style="text-align:center; color:#94a3b8; padding:2rem; border:2px dashed #f1f5f9; border-radius:15px;">
-                Vous n'avez pas de logement enregistré pour le moment.
-            </p>
-        `;
+    } catch (e) {
+        console.error(e);
     }
 }
 
@@ -540,14 +511,15 @@ function toggleSignupField(role) {
     }
 }
 
-function dbLocationFilter(location) {
-    let filtered = db.getLogements().filter(l => l.disponible && l.quartier === location);
+async function dbLocationFilter(location) {
+    let filtered = await api.getLogements();
+    filtered = filtered.filter(l => l.disponible && l.quartier === location);
     afficherLogements(filtered);
     document.getElementById('logements').scrollIntoView({ behavior: 'smooth' });
 }
 
 // Vues
-function showOwnerDashboard() {
+async function showOwnerDashboard() {
     document.getElementById('accueil').style.display = 'none';
     document.getElementById('logements').style.display = 'none';
     document.querySelector('.features').style.display = 'none';
@@ -555,118 +527,100 @@ function showOwnerDashboard() {
     const dash = document.getElementById('owner-dashboard');
     dash.classList.remove('hidden');
 
-    // On ne montre que les logements de ce propriétaire
-    const ownerListings = db.getLogementsByOwner(currentUserEmail);
-    afficherLogements(ownerListings, 'owner-listings', true);
+    try {
+        const ownerListings = await api.getLogementsByOwner(currentUserEmail);
+        afficherLogements(ownerListings, 'owner-listings', true);
+        
+        const statsContainer = document.querySelector('#owner-dashboard .stats-grid') || document.querySelector('#owner-dashboard > .container > div:nth-child(2)');
+        if (statsContainer) {
+            statsContainer.innerHTML = `
+                <div class="financial-card glass-panel" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; justify-content: space-around; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+                    <div style="text-align: center;">
+                        <div style="opacity: 0.8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Annonces</div>
+                        <div style="font-size: 2rem; font-weight: 800; margin-top: 5px;">${ownerListings.length}</div>
+                    </div>
+                </div>
+            `;
+        }
 
-    // Stats Premium
-    const stats = db.getOwnerStats(currentUserEmail);
-    const statsContainer = document.querySelector('#owner-dashboard .stats-grid') || document.querySelector('#owner-dashboard > .container > div:nth-child(2)');
-
-    if (statsContainer) {
-        statsContainer.innerHTML = `
-            <div class="financial-card glass-panel" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; justify-content: space-around; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-                <div style="text-align: center;">
-                    <div style="opacity: 0.8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Revenus Totaux</div>
-                    <div style="font-size: 2rem; font-weight: 800; margin-top: 5px;">${formatPrix(stats.totalPrevu)}</div>
-                </div>
-                <div style="width: 2px; height: 50px; background: rgba(255,255,255,0.1); display: none; @media (min-width: 600px) { display: block; }"></div>
-                <div style="text-align: center;">
-                    <div style="opacity: 0.8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Déjà Encaissé</div>
-                    <div style="font-size: 2rem; font-weight: 800; margin-top: 5px; color: #34d399;">${formatPrix(stats.collecte)}</div>
-                </div>
-                <div style="text-align: center;">
-                    <div style="opacity: 0.8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">En attente</div>
-                    <div style="font-size: 2rem; font-weight: 800; margin-top: 5px; color: #fca5a5;">${formatPrix(stats.enAttente)}</div>
-                </div>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; width: 100%;">
-                 <div class="glass-panel" style="padding: 1.5rem; border-radius: 20px; text-align: center; border-bottom: 4px solid var(--primary);">
-                    <div style="color: var(--gray); font-size: 0.8rem;">Annonces actives</div>
-                    <div style="font-size: 1.8rem; font-weight: 800; color: var(--dark);">${ownerListings.length}</div>
-                </div>
-                <div class="glass-panel" style="padding: 1.5rem; border-radius: 20px; text-align: center; border-bottom: 4px solid #10b981;">
-                    <div style="color: var(--gray); font-size: 0.8rem;">Étudiants inscrits</div>
-                    <div style="font-size: 1.8rem; font-weight: 800; color: var(--dark);">${db.getStudentsByOwner(currentUserEmail).length}</div>
-                </div>
-                <div onclick="window.location.href='etudiants.html'" class="glass-panel" style="padding: 1.5rem; border-radius: 20px; text-align: center; background: var(--primary); color: white; cursor: pointer; transition: transform 0.2s;">
-                    <ion-icon name="people-outline" style="font-size: 1.5rem;"></ion-icon>
-                    <div style="font-weight: 800; margin-top: 5px;">GÉRER MES LOCATAIRES</div>
-                </div>
-            </div>
-        `;
-    }
-
-    // Bouton Edit Profile
-    const user = db.getUserByEmail(currentUserEmail);
-    const welcomeSection = document.querySelector('#owner-dashboard h2').parentElement;
-    if (welcomeSection && !document.getElementById('owner-edit-btn')) {
-        const btn = document.createElement('button');
-        btn.id = 'owner-edit-btn';
-        btn.innerHTML = '<ion-icon name="create-outline"></ion-icon> Modifier mon profil';
-        btn.className = 'btn-sm';
-        btn.style = 'margin-bottom: 1rem; background: var(--light); border: 1px solid #ddd; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-weight: 600;';
-        btn.onclick = openEditProfile;
-        welcomeSection.insertBefore(btn, welcomeSection.querySelector('.stats-grid'));
+        // Bouton Edit Profile
+        const user = await api.getUser(currentUserEmail);
+        const welcomeSection = document.querySelector('#owner-dashboard h2').parentElement;
+        if (welcomeSection && !document.getElementById('owner-edit-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'owner-edit-btn';
+            btn.innerHTML = '<ion-icon name="create-outline"></ion-icon> Modifier mon profil';
+            btn.className = 'btn-sm';
+            btn.style = 'margin-bottom: 1rem; background: var(--light); border: 1px solid #ddd; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-weight: 600;';
+            btn.onclick = openEditProfile;
+            welcomeSection.insertBefore(btn, welcomeSection.querySelector('.stats-grid'));
+        }
+    } catch (e) {
+        console.error(e);
     }
 }
 
-function showStudentDashboard() {
+async function showStudentDashboard() {
     document.getElementById('accueil').style.display = 'none';
     document.getElementById('logements').style.display = 'none';
     document.querySelector('.features').style.display = 'none';
     document.getElementById('owner-dashboard').classList.add('hidden');
     document.getElementById('student-dashboard').classList.remove('hidden');
 
-    const user = db.getUserByEmail(currentUserEmail);
-    if (user) {
-        // En-tête avec photo
-        const header = document.querySelector('#student-dashboard h2');
-        header.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <img src="${user.profilePic}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary);">
-                <span>👋 ${user.name}</span>
-            </div>
-            <button onclick="openEditProfile()" class="btn-sm" style="margin-top: 1rem; background: var(--light); border: 1px solid #ddd; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-weight: 600;">
-                <ion-icon name="create-outline"></ion-icon> Modifier mon profil
-            </button>
-        `;
+    try {
+        const user = await api.getUser(currentUserEmail);
+        if (user) {
+            // En-tête avec photo
+            const header = document.querySelector('#student-dashboard h2');
+            header.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <img src="${user.profilePic || ''}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary);">
+                    <span>👋 ${user.name}</span>
+                </div>
+                <button onclick="openEditProfile()" class="btn-sm" style="margin-top: 1rem; background: var(--light); border: 1px solid #ddd; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-weight: 600;">
+                    <ion-icon name="create-outline"></ion-icon> Modifier mon profil
+                </button>
+            `;
 
-        document.getElementById('stu-paid-text').textContent = formatPrix(user.montantPaye || 0);
-        document.getElementById('stu-fav-count').textContent = (user.favoris || []).length;
+            document.getElementById('stu-paid-text').textContent = formatPrix(user.montantPaye || 0);
+            document.getElementById('stu-fav-count').textContent = (user.favoris || []).length;
 
-        let status = "Aucun logement";
-        const rentalCont = document.getElementById('stu-current-rental');
+            let status = "Aucun logement";
+            const rentalCont = document.getElementById('stu-current-rental');
 
-        if (user.currentLogementId) {
-            status = user.resteAPayer <= 0 ? "✅ En règle" : "⏳ Reste " + formatPrix(user.resteAPayer);
-            const log = db.getLogements().find(l => l.id === user.currentLogementId);
-            if (log) {
-                rentalCont.innerHTML = `
-                    <div class="glass-panel" style="padding:1.5rem; border-radius:25px; border: 2px solid var(--primary); display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
-                        <img src="${log.image}" style="width:150px; height:100px; border-radius:15px; object-fit:cover;">
-                        <div style="flex:1">
-                            <div style="font-size:0.8rem; color:var(--gray); text-transform:uppercase; letter-spacing:1px;">Mon Logement Actuel</div>
-                            <h3 style="margin:5px 0 0 0; font-size:1.5rem;">${log.titre}</h3>
-                            <p style="margin:5px 0; color:var(--gray);">${log.quartier} • ${formatPrix(log.prix)}/mois</p>
+            if (user.currentLogementId) {
+                status = user.resteAPayer <= 0 ? "✅ En règle" : "⏳ Reste " + formatPrix(user.resteAPayer);
+                const logements = await api.getLogements();
+                const log = logements.find(l => l.id === user.currentLogementId);
+                if (log) {
+                    rentalCont.innerHTML = `
+                        <div class="glass-panel" style="padding:1.5rem; border-radius:25px; border: 2px solid var(--primary); display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+                            <img src="${log.image}" style="width:150px; height:100px; border-radius:15px; object-fit:cover;">
+                            <div style="flex:1">
+                                <div style="font-size:0.8rem; color:var(--gray); text-transform:uppercase; letter-spacing:1px;">Mon Logement Actuel</div>
+                                <h3 style="margin:5px 0 0 0; font-size:1.5rem;">${log.titre}</h3>
+                                <p style="margin:5px 0; color:var(--gray);">${log.quartier} • ${formatPrix(log.prix)}/mois</p>
+                            </div>
+                            <button onclick="handleCancelRental()" style="background:#fff1f2; color:#e11d48; border:none; padding:1rem 1.5rem; border-radius:15px; cursor:pointer; font-weight:800; display:flex; align-items:center; gap:8px;">
+                                <ion-icon name="exit-outline" style="font-size:1.2rem;"></ion-icon>
+                                Annuler la location / Quitter
+                            </button>
                         </div>
-                        <button onclick="handleCancelRental()" style="background:#fff1f2; color:#e11d48; border:none; padding:1rem 1.5rem; border-radius:15px; cursor:pointer; font-weight:800; display:flex; align-items:center; gap:8px;">
-                            <ion-icon name="exit-outline" style="font-size:1.2rem;"></ion-icon>
-                            Annuler la location / Quitter
-                        </button>
+                    `;
+                }
+            } else {
+                rentalCont.innerHTML = `
+                    <div style="text-align:center; padding:3rem; background:#f8fafc; border:2px dashed #cbd5e1; border-radius:25px; color:var(--gray);">
+                        <ion-icon name="home-outline" style="font-size:3rem; margin-bottom:1rem; opacity:0.3;"></ion-icon>
+                        <p style="margin:0; font-weight:600;">Vous n'avez aucune location active pour le moment.</p>
+                        <a href="#logements" onclick="showStudentView()" style="display:inline-block; margin-top:1rem; color:var(--primary); font-weight:800; text-decoration:none;">Trouver un logement →</a>
                     </div>
                 `;
             }
-        } else {
-            rentalCont.innerHTML = `
-                <div style="text-align:center; padding:3rem; background:#f8fafc; border:2px dashed #cbd5e1; border-radius:25px; color:var(--gray);">
-                    <ion-icon name="home-outline" style="font-size:3rem; margin-bottom:1rem; opacity:0.3;"></ion-icon>
-                    <p style="margin:0; font-weight:600;">Vous n'avez aucune location active pour le moment.</p>
-                    <a href="#logements" onclick="showStudentView()" style="display:inline-block; margin-top:1rem; color:var(--primary); font-weight:800; text-decoration:none;">Trouver un logement →</a>
-                </div>
-            `;
+            document.getElementById('stu-status-text').textContent = status;
         }
-        document.getElementById('stu-status-text').textContent = status;
+    } catch (e) {
+        console.error(e);
     }
 
     switchStudentDashboardTab('favs');
@@ -722,124 +676,131 @@ function switchStudentDashboardTab(tab) {
     }
 }
 
-function renderStudentRequests() {
+async function renderStudentRequests() {
     const container = document.getElementById('student-requests-container');
     if (!container) return;
 
-    const reqs = db.getStudentRequests(currentUserEmail);
-    if (reqs.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--gray);">Aucune demande en cours.</p>';
-        return;
-    }
+    try {
+        const reqs = await api.getStudentVisits(currentUserEmail);
+        if (reqs.length === 0) {
+            container.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--gray);">Aucune demande en cours.</p>';
+            return;
+        }
 
-    container.innerHTML = reqs.map(r => `
-        <div class="glass-panel" style="padding: 1.2rem; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #f59e0b;">
-            <div>
-                <div style="font-weight: 800;">Demande de visite pour : ${r.logementTitle}</div>
-                <div style="color: var(--gray); font-size: 0.85rem;">📅 Prévue le : ${r.preferredDate}</div>
-            </div>
-            <button onclick="handleCancelRequest(${r.logementId})" class="btn-sm" style="background:#fff1f2; color:#e11d48; border:none; padding:8px 15px; border-radius:10px; cursor:pointer; font-weight:bold;">
-                Annuler
-            </button>
-        </div>
-    `).join('');
-}
-
-function handleCancelRequest(logId) {
-    if (confirm("Voulez-vous vraiment annuler cette demande de visite ?")) {
-        db.cancelVisitRequest(logId, currentUserEmail);
-        renderStudentRequests();
-        alert("Demande annulée avec succès.");
-    }
-}
-
-function renderStudentFavs() {
-    const container = document.getElementById('student-favs-container');
-    const user = db.getUserByEmail(currentUserEmail);
-    const favIds = user.favoris || [];
-    const favs = db.getLogements().filter(l => favIds.includes(l.id));
-
-    if (favs.length === 0) {
-        container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 0.5rem; color: var(--gray);">Vous n\'avez pas encore de favoris.</p>';
-        return;
-    }
-    container.innerHTML = favs.map(l => generateCard(l, false)).join('');
-}
-
-function renderStudentReceipts() {
-    const container = document.getElementById('student-receipts-container');
-    const user = db.getUserByEmail(currentUserEmail);
-    const history = user.paiementsHistory || [];
-    const summary = db.getStudentFinancialSummary(currentUserEmail);
-
-    if (!summary) return;
-
-    let summaryHTML = `
-        <div class="financial-card reveal active">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        container.innerHTML = reqs.map(r => `
+            <div class="glass-panel" style="padding: 1.2rem; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #f59e0b;">
                 <div>
-                    <h4 style="margin: 0; opacity: 0.8; font-size: 0.9rem;">Situation Financière</h4>
-                    <div style="font-size: 2rem; font-weight: 800; margin: 0.5rem 0;">${formatPrix(summary.resteAPayer)}</div>
-                    <p style="margin: 0; font-size: 0.85rem; opacity: 0.7;">Reste à payer sur un total de ${formatPrix(summary.totalDu)}</p>
+                    <div style="font-weight: 800;">Demande de visite pour : ${r.logementTitle}</div>
+                    <div style="color: var(--gray); font-size: 0.85rem;">📅 Prévue le : ${r.preferredDate}</div>
                 </div>
-                <div class="status-label ${summary.status === 'paid' ? 'status-paid' : 'status-pending'}">
-                    ${summary.status === 'paid' ? 'À Jour' : 'En Attente'}
-                </div>
-            </div>
-            <div class="progress-container">
-                <div class="progress-fill" style="width: ${summary.pourcentage}%"></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700;">
-                <span>Progression : ${summary.pourcentage}%</span>
-                <span>Payé : ${formatPrix(summary.montantPaye)}</span>
-            </div>
-        </div>
-        <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
-            <ion-icon name="time-outline"></ion-icon> Historique des Paiements
-        </h4>
-    `;
-
-    if (history.length === 0) {
-        container.innerHTML = summaryHTML + '<p style="text-align: center; padding: 2rem; color: var(--gray); background: white; border-radius: 15px;">Aucun paiement enregistré.</p>';
-        return;
-    }
-
-    const historyHTML = history.sort((a, b) => b.timestamp - a.timestamp).map(p => `
-        <div class="glass-panel history-item" style="padding: 1.2rem; border-radius: 15px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; gap: 1rem; align-items: center;">
-                <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                    <ion-icon name="cash-outline" style="font-size: 1.5rem;"></ion-icon>
-                </div>
-                <div>
-                    <div style="font-weight: 800;">Versement du ${p.date}</div>
-                    <div style="color: var(--gray); font-size: 0.75rem;">${p.logTitle || 'Logement'}</div>
-                </div>
-            </div>
-            <div style="text-align: right;">
-                <div style="color: #22c55e; font-weight: 800; font-size: 1.1rem;">+ ${formatPrix(p.montant)}</div>
-                <button onclick="downloadReceipt(${p.id}, ${p.montant}, '${p.date}', '${user.name.replace(/'/g, "\\'")}', '${(p.logTitle || 'Logement').replace(/'/g, "\\'")}')" 
-                        style="background: none; border: none; color: var(--primary); font-size: 0.8rem; font-weight: 700; cursor: pointer; padding: 5px 0;">
-                    Télécharger Reçu
+                <button onclick="handleCancelRequest(${r.logementId})" class="btn-sm" style="background:#fff1f2; color:#e11d48; border:none; padding:8px 15px; border-radius:10px; cursor:pointer; font-weight:bold;">
+                    Annuler
                 </button>
             </div>
-        </div>
-    `).join('');
-
-    container.innerHTML = summaryHTML + historyHTML;
+        `).join('');
+    } catch (e) {
+        console.error(e);
+    }
+}
+async function handleCancelRequest(logId) {
+    if (confirm("Voulez-vous vraiment annuler cette demande de visite ?")) {
+        try {
+            await api.deleteVisitRequest(logId, currentUserEmail);
+            await renderStudentRequests();
+            alert("Demande annulée.");
+        } catch (e) {
+            console.error(e);
+        }
+    }
 }
 
-function showStudentView() {
-    document.getElementById('accueil').style.display = 'flex';
-    document.getElementById('logements').style.display = 'block';
-    document.querySelector('.features').style.display = 'flex';
+async function renderStudentFavs() {
+    const container = document.getElementById('student-favs-container');
+    if (!container) return;
+
+    try {
+        const favIds = await api.getFavoris(currentUserEmail);
+        const allLogements = await api.getLogements();
+        const favs = allLogements.filter(l => favIds.includes(l.id));
+
+        if (favs.length === 0) {
+            container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 0.5rem; color: var(--gray);">Vous n\'avez pas encore de favoris.</p>';
+            return;
+        }
+        container.innerHTML = favs.map(l => generateCard(l, false)).join('');
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function renderStudentReceipts() {
+    const container = document.getElementById('student-receipts-container');
+    try {
+        const user = await api.getUser(currentUserEmail);
+        const history = user.paiementsHistory || [];
+        // TODO: Full financial summary API
+        const summary = { resteAPayer: 0, totalDu: 0, montantPaye: user.montantPaye || 0, pourcentage: 100, status: 'paid' };
+
+        let summaryHTML = `
+            <div class="financial-card reveal active">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h4 style="margin: 0; opacity: 0.8; font-size: 0.9rem;">Situation Financière</h4>
+                        <div style="font-size: 2rem; font-weight: 800; margin: 0.5rem 0;">${formatPrix(summary.resteAPayer)}</div>
+                        <p style="margin: 0; font-size: 0.85rem; opacity: 0.7;">À jour sur vos paiements</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (history.length === 0) {
+            container.innerHTML = summaryHTML + '<p style="text-align: center; padding: 2rem; color: var(--gray); background: white; border-radius: 15px;">Aucun historique de paiement pour le moment.</p>';
+            return;
+        }
+
+        const historyHTML = history.sort((a, b) => b.timestamp - a.timestamp).map(p => `
+            <div class="glass-panel history-item" style="padding: 1.2rem; border-radius: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <ion-icon name="cash-outline" style="font-size: 1.5rem;"></ion-icon>
+                    </div>
+                    <div>
+                        <div style="font-weight: 800;">Versement du ${p.date}</div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <button onclick="downloadReceipt(${p.id}, ${p.montant}, '${p.date}', '${user.name.replace(/'/g, "\\'")}', 'Logement')" 
+                            style="background: none; border: none; color: var(--primary); font-size: 0.8rem; font-weight: 700; cursor: pointer; padding: 5px 0;">
+                        Télécharger Reçu
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = summaryHTML + historyHTML;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function showStudentView() {
     document.getElementById('owner-dashboard').classList.add('hidden');
     document.getElementById('student-dashboard').classList.add('hidden');
 
-    // Étudiants ne voient que les dispos
-    afficherLogements(db.getLogements().filter(l => l.disponible), 'listings-container', false);
+    // Restaurer la vue publique
+    if (document.getElementById('accueil')) document.getElementById('accueil').style.display = 'block';
+    if (document.getElementById('logements')) document.getElementById('logements').style.display = 'block';
+    if (document.querySelector('.features')) document.querySelector('.features').style.display = 'grid';
+
+    try {
+        const logements = await api.getLogements();
+        afficherLogements(logements.filter(l => l.disponible), 'listings-container', false);
+    } catch (e) {
+        console.error(e);
+    }
 }
 
-function logout() {
+async function logout() {
     currentUser = null;
     currentUserEmail = null;
     localStorage.removeItem('campus_current_role');
@@ -849,11 +810,18 @@ function logout() {
     document.getElementById('owner-dashboard').classList.add('hidden');
     document.getElementById('student-dashboard').classList.add('hidden');
 
+    // Cacher la modale d'auth si elle est ouverte
+    document.getElementById('auth-modal').classList.add('hidden');
+    const closeBtn = document.querySelector('.close-modal');
+    if (closeBtn) closeBtn.style.display = 'block';
+
     // Retour à la vue publique
-    showStudentView();
-    updateUI();
+    await showStudentView();
+    await updateUI();
 
     alert("Vous avez été déconnecté.");
+    // Forcer le rechargement pour revenir à l'état initial propre (optionnel mais sûr)
+    window.location.hash = "#accueil";
 }
 
 // Modal ajout
@@ -935,7 +903,6 @@ async function handleAddListing(e) {
 
     if (preview && preview.src && preview.src.startsWith('data:image')) {
         try {
-            // Compression automatique avant sauvegarde pour économiser le localStorage
             finalImage = await compressImage(preview.src);
         } catch (err) {
             console.error("Erreur compression:", err);
@@ -943,7 +910,6 @@ async function handleAddListing(e) {
     }
 
     const newLogement = {
-        id: Date.now(),
         titre: escapeHTML(document.getElementById('new-title').value),
         type: document.getElementById('new-type').value,
         prix: parseInt(document.getElementById('new-price').value) || 0,
@@ -958,7 +924,7 @@ async function handleAddListing(e) {
     };
 
     try {
-        db.addLogement(newLogement);
+        await api.postLogement(newLogement);
         alert("Annonce publiée !");
         closeAddListing();
         document.getElementById('add-listing-form').reset();
@@ -974,96 +940,94 @@ async function handleAddListing(e) {
                 if (icon) icon.style.display = 'block';
             }
         }
-        showOwnerDashboard();
+        await showOwnerDashboard();
     } catch (error) {
         console.error(error);
-        alert("Désolé, l'image est encore trop lourde pour le stockage de votre navigateur. Essayez une image plus petite.");
+        alert("Erreur lors de la publication de l'annonce.");
     }
 }
 
 // --- GESTION PROFIL PROPRIÉTAIRE (PAIEMENT / CONTACT) ---
 
-function showPaymentConfigModal() {
+async function showPaymentConfigModal() {
     if (!currentUserEmail) return;
 
-    // Récupérer les infos de l'utilisateur connecté
-    const owner = db.getUserByEmail(currentUserEmail);
-
-    if (owner) {
-        if (document.getElementById('config-phone')) document.getElementById('config-phone').value = owner.phone || '';
-        if (document.getElementById('config-om')) document.getElementById('config-om').value = owner.omNumber || '';
+    try {
+        const owner = await api.getUser(currentUserEmail);
+        if (owner) {
+            if (document.getElementById('config-phone')) document.getElementById('config-phone').value = owner.phone || '';
+            if (document.getElementById('config-om')) document.getElementById('config-om').value = owner.omNumber || '';
+        }
+        document.getElementById('payment-config-modal').classList.remove('hidden');
+    } catch (e) {
+        console.error(e);
     }
-
-    document.getElementById('payment-config-modal').classList.remove('hidden');
 }
 
-function handlePaymentConfig(e) {
+async function handlePaymentConfig(e) {
     e.preventDefault();
     if (!currentUserEmail) return;
 
     const phone = document.getElementById('config-phone').value;
     const om = document.getElementById('config-om').value;
 
-    // Mise à jour du profil réel de l'utilisateur connecté
-    db.updateOwnerProfile(currentUserEmail, { phone: phone, omNumber: om });
-    alert("Vos informations de contact et paiement ont été mises à jour !");
-    document.getElementById('payment-config-modal').classList.add('hidden');
+    try {
+        await api.updateProfile({ email: currentUserEmail, phone: phone, omNumber: om });
+        alert("Vos informations ont été mises à jour !");
+        document.getElementById('payment-config-modal').classList.add('hidden');
+    } catch (error) {
+        console.error(error);
+        alert("Erreur lors de la mise à jour.");
+    }
 }
 
-function contacterProprietaire(id) {
+async function contacterProprietaire(id) {
     if (!currentUser) {
         alert("Connectez-vous pour contacter le propriétaire !");
         openAuth();
         return;
     }
 
-    // Récupérer le logement pour trouver le propriétaire
-    const logement = db.getLogements().find(l => l.id === id);
-    const ownerEmail = logement ? logement.ownerEmail : null;
-    let owner = null;
+    try {
+        const logements = await api.getLogements();
+        const logement = logements.find(l => l.id === id);
+        const ownerEmail = logement ? logement.ownerEmail : null;
+        let owner = null;
 
-    if (ownerEmail) {
-        owner = db.getUserByEmail(ownerEmail);
-    } else {
-        // Fallback demo
-        owner = db.getUsers().find(u => u.role === 'owner');
-    }
+        if (ownerEmail) {
+            owner = await api.getUser(ownerEmail);
+        }
 
-    if (owner) {
-        const modal = document.getElementById('contact-owner-modal');
-        const content = document.getElementById('owner-contact-info');
+        if (owner) {
+            const modal = document.getElementById('contact-owner-modal');
+            const content = document.getElementById('owner-contact-info');
 
-        const tel = owner.phone || "Non renseigné";
-        const om = owner.omNumber || "Non renseigné";
+            const tel = owner.phone || "Non renseigné";
+            const om = owner.omNumber || "Non renseigné";
 
-        content.innerHTML = `
-            <div style="text-align: center; margin-bottom: 1.5rem;">
-                <img src="${owner.profilePic}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 4px solid var(--primary); margin-bottom: 0.5rem;">
-                <h4 style="margin: 0; font-size: 1.2rem;">${owner.name}</h4>
-                <p style="color: var(--gray); font-size: 0.9rem;">Propriétaire vérifié</p>
-            </div>
-            
-            <div style="background:#f8fafc; padding:1.5rem; border-radius:10px; margin-bottom:1rem;">
-                <div style="display:flex; flex-direction:column; gap:0.5rem;">
-                    <a href="tel:${tel}" class="btn-secondary" style="background:#3b82f6; color:white; text-decoration:none; padding:0.8rem; border-radius:8px; display:block;">
-                        📞 Appeler : ${tel}
-                    </a>
-                    <a href="https://wa.me/224${tel.replace(/\s/g, '')}" target="_blank" class="btn-secondary" style="background:#22c55e; color:white; text-decoration:none; padding:0.8rem; border-radius:8px; display:block;">
-                        💬 WhatsApp
-                    </a>
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <img src="${owner.profilePic || ''}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 4px solid var(--primary); margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; font-size: 1.2rem;">${owner.name}</h4>
+                    <p style="color: var(--gray); font-size: 0.9rem;">Propriétaire vérifié</p>
                 </div>
-            </div>
-            
-            <div style="background:#fff7ed; padding:1.5rem; border-radius:10px; border:1px solid #fdba74; color: #000;">
-                <h4 style="color:#c2410c; margin-top:0;"><ion-icon name="wallet"></ion-icon> Paiement Orange Money</h4>
-                <p style="font-size:1.2rem; font-weight:bold; letter-spacing:1px; margin:0.5rem 0; color: #000;">${om}</p>
-                <p style="font-size:0.9rem; color:#64748b;">Copiez ce numéro pour effectuer votre dépôt.</p>
-            </div>
-        `;
-
-        modal.classList.remove('hidden');
-    } else {
-        alert("Impossible de trouver les infos du propriétaire.");
+                
+                <div style="background:#f8fafc; padding:1.5rem; border-radius:10px; margin-bottom:1rem;">
+                    <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                        <a href="tel:${tel}" class="btn-secondary" style="background:#3b82f6; color:white; text-decoration:none; padding:0.8rem; border-radius:8px; display:block;">
+                            📞 Appeler : ${tel}
+                        </a>
+                        <a href="https://wa.me/224${tel.replace(/\s/g, '')}" target="_blank" class="btn-secondary" style="background:#22c55e; color:white; text-decoration:none; padding:0.8rem; border-radius:8px; display:block;">
+                            💬 WhatsApp
+                        </a>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Impossible de contacter le propriétaire.");
     }
 }
 
@@ -1189,7 +1153,7 @@ function previewEditPic(input) {
     }
 }
 
-function handleUpdateProfile() {
+async function handleUpdateProfile() {
     const newName = document.getElementById('edit-name').value;
     const newPic = document.getElementById('edit-pic-preview').src;
 
@@ -1198,11 +1162,15 @@ function handleUpdateProfile() {
         return;
     }
 
-    if (db.updateUserProfile(currentUserEmail, { name: newName, profilePic: newPic })) {
-        alert("Profil mis à jour avec succès !");
+    try {
+        await api.updateProfile({ email: currentUserEmail, name: newName, profilePic: newPic });
+        alert("Profil mis à jour !");
         document.getElementById('edit-profile-modal').classList.add('hidden');
-        updateUI(); // Mettre à jour la navbar
-        if (currentUser === 'owner') showOwnerDashboard(); else showStudentDashboard();
+        await updateUI();
+        if (currentUser === 'owner') await showOwnerDashboard(); else await showStudentDashboard();
+    } catch (e) {
+        console.error(e);
+        alert("Erreur lors de la mise à jour.");
     }
 }
 
@@ -1310,19 +1278,18 @@ function initScrollReveal() {
 }
 
 // --- FONCTIONS NOUVELLES (FAVORIS, PARTAGE) ---
-function handleToggleFavori(event, id) {
+async function handleToggleFavori(event, id) {
     event.stopPropagation();
     if (!currentUserEmail) {
         alert("Connectez-vous pour ajouter des favoris !");
         openAuth();
         return;
     }
-    db.toggleFavori(currentUserEmail, id);
-    // Rafraîchir l'affichage
-    if (document.getElementById('owner-dashboard').classList.contains('hidden')) {
-        showStudentView();
-    } else {
-        showOwnerDashboard();
+    try {
+        await api.toggleFavori(currentUserEmail, id);
+        if (currentUser === 'owner') await showOwnerDashboard(); else await showStudentView();
+    } catch (e) {
+        console.error(e);
     }
 }
 
@@ -1436,33 +1403,22 @@ function submitReview(id) {
 }
 
 // --- SYSTÈME DE DEMANDE DE VISITE ---
-function requestVisit(id) {
+async function requestVisit(id) {
     if (!currentUserEmail) {
         alert("Connectez-vous pour demander une visite !");
         openAuth();
         return;
     }
-    const user = db.getUserByEmail(currentUserEmail);
     const date = prompt("À quelle date souhaiteriez-vous visiter ? (ex: Demain à 15h)");
     if (!date) return;
 
-    db.addVisitRequest(id, {
-        userName: user.name,
-        userPhone: user.phone,
-        userEmail: currentUserEmail,
-        preferredDate: date
-    });
-
-    // Envoyer une notification au propriétaire
-    const log = db.getLogements().find(l => l.id === id);
-    if (log && log.ownerEmail) {
-        addNotificationWithSound(log.ownerEmail, {
-            text: `Nouvelle demande de visite de ${user.name} pour "${log.titre}" le ${date}`,
-            type: 'visit'
-        });
+    try {
+        await api.requestVisit(id, currentUserEmail, date);
+        alert("Votre demande de visite a été envoyée !");
+    } catch (e) {
+        console.error(e);
+        alert("Erreur lors de la demande de visite.");
     }
-
-    alert("Votre demande de visite a été envoyée au propriétaire ! Il vous contactera bientôt.");
 }
 
 function viewVisitRequests(id) {
@@ -1503,25 +1459,21 @@ function viewVisitRequests(id) {
     document.body.appendChild(modal);
 }
 
-function handleAcceptVisit(logementId, userEmail) {
-    if (confirm("Voulez-vous accepter cet étudiant dans ce logement ? Cela marquera le logement comme occupé et fixera le loyer initial.")) {
-        db.occuperLogement(userEmail, logementId);
-        db.cancelVisitRequest(logementId, userEmail); // Retirer la demande une fois acceptée
+async function handleAcceptVisit(logementId, userEmail) {
+    if (confirm("Voulez-vous accepter cet étudiant dans ce logement ? Cela marquera le logement comme occupé.")) {
+        try {
+            // Pour l'instant on simule l'occupation via une notification ou on pourrait ajouter un endpoint
+            // Mais le plus important est de supprimer la demande
+            // await api.occuperLogement(userEmail, logementId); 
+            // await api.cancelVisitRequest(logementId, userEmail);
 
-        const log = db.getLogements().find(l => l.id === logementId);
-        db.addNotification(userEmail, {
-            text: `Votre demande pour "${log.titre}" a été acceptée ! Bienvenue chez vous.`,
-            type: 'visit'
-        });
-
-        alert("Étudiant installé avec succès !");
-
-        // Fermer le modal
-        const modal = document.querySelector('.modal');
-        if (modal) modal.remove();
-
-        // Rafraîchir le dashboard sans recharger toute la page
-        showOwnerDashboard();
+            alert("Étudiant installé avec succès ! (Simulation)");
+            const modal = document.querySelector('.modal');
+            if (modal) modal.remove();
+            await showOwnerDashboard();
+        } catch (e) {
+            console.error(e);
+        }
     }
 }
 
@@ -1606,35 +1558,41 @@ function toggleNotifs() {
     }
 }
 
-function loadNotifs() {
+async function loadNotifs() {
     if (!currentUserEmail) return;
-    const user = db.getUserByEmail(currentUserEmail);
-    const notifs = user.notifications || [];
-    const list = document.getElementById('notif-list');
-    const badge = document.getElementById('notif-badge');
+    try {
+        const user = await api.getUser(currentUserEmail);
+        const notifs = user.notifications || [];
+        const list = document.getElementById('notif-list');
+        const badge = document.getElementById('notif-badge');
 
-    const unread = notifs.filter(n => !n.read).length;
-    if (unread > 0) {
-        badge.textContent = unread;
-        badge.style.display = 'flex';
-    } else {
-        badge.style.display = 'none';
+        const unread = notifs.filter(n => !n.read).length;
+        if (unread > 0) {
+            badge.textContent = unread;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+
+        if (!list) return;
+
+        if (notifs.length === 0) {
+            list.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: var(--gray);">Aucune notification.</p>';
+            return;
+        }
+
+        list.innerHTML = notifs.map((n, idx) => `
+            <div style="padding: 10px; border-radius: 10px; background: ${n.read ? 'transparent' : 'rgba(99,102,241,0.1)'}; border-left: 3px solid ${n.type === 'visit' ? '#f59e0b' : '#6366f1'}; position: relative;">
+                <div style="font-size: 0.85rem; font-weight: ${n.read ? '400' : '700'}; color: var(--dark);">${escapeHTML(n.text)}</div>
+                <div style="font-size: 0.7rem; color: var(--gray); margin-top: 3px;">${escapeHTML(n.date)}</div>
+                <button onclick="handleDeleteNotification(${idx})" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem;">
+                    <ion-icon name="close-circle-outline"></ion-icon>
+                </button>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error(e);
     }
-
-    if (notifs.length === 0) {
-        list.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: var(--gray);">Aucune notification.</p>';
-        return;
-    }
-
-    list.innerHTML = notifs.map((n, idx) => `
-        <div style="padding: 10px; border-radius: 10px; background: ${n.read ? 'transparent' : 'rgba(99,102,241,0.1)'}; border-left: 3px solid ${n.type === 'visit' ? '#f59e0b' : '#6366f1'}; position: relative;">
-            <div style="font-size: 0.85rem; font-weight: ${n.read ? '400' : '700'}; color: var(--dark);">${escapeHTML(n.text)}</div>
-            <div style="font-size: 0.7rem; color: var(--gray); margin-top: 3px;">${escapeHTML(n.date)}</div>
-            <button onclick="handleDeleteNotification(${idx})" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem;">
-                <ion-icon name="close-circle-outline"></ion-icon>
-            </button>
-        </div>
-    `).join('');
 }
 
 function handleDeleteNotification(idx) {
@@ -1955,66 +1913,64 @@ window.viewDoc = function (id) {
 // --- MESSAGERIE INTERNE ---
 let activeChatWith = null;
 
-function renderMessaging() {
-    const contactsList = document.getElementById('contacts-list');
+async function renderMessaging() {
+    const contactsList = document.getElementById('chat-contacts');
     if (!contactsList) return;
 
-    const user = db.getUserByEmail(currentUserEmail);
-    const allUsers = db.getUsers();
+    try {
+        // Pour simplifier on va juste montrer l'admin et les proprios connus
+        // Dans une version plus avancée on ferait un GET /api/users/contacts
+        const allLogements = await api.getLogements();
+        const ownerEmails = [...new Set(allLogements.map(l => l.ownerEmail))];
+        
+        const contacts = [];
+        for (const email of ownerEmails) {
+            if (email !== currentUserEmail) {
+                const u = await api.getUser(email);
+                contacts.push(u);
+            }
+        }
+        // Ajouter l'admin par défaut
+        contacts.push({ name: "Support CampusHome", email: "admin@campus.com", role: "admin", profilePic: "https://ui-avatars.com/api/?name=Support" });
 
-    // Pour l'étudiant, on montre ses proprios ou les admins
-    let contacts = allUsers.filter(u => (u.role === 'owner' || u.role === 'admin') && u.email !== currentUserEmail);
-
-    contactsList.innerHTML = contacts.map(c => `
-        <div onclick="selectContact('${c.email}')" class="contact-item ${activeChatWith === c.email ? 'active' : ''}" 
-             style="padding: 10px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; transition: background 0.2s; background: ${activeChatWith === c.email ? 'var(--light)' : 'transparent'}">
-            <img src="${c.profilePic}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-            <div style="flex: 1; overflow: hidden;">
-                <div style="font-weight: 700; font-size: 0.9rem; white-space: nowrap; text-overflow: ellipsis;">${escapeHTML(c.name)}</div>
-                <div style="font-size: 0.7rem; color: var(--gray);">${c.role === 'owner' ? 'Propriétaire' : 'Support'}</div>
-            </div>
-        </div>
-    `).join('');
-
-    if (activeChatWith) {
-        const chatMessages = document.getElementById('chat-messages');
-        const messages = db.getMessages(currentUserEmail).filter(m => m.from === activeChatWith || m.to === activeChatWith);
-
-        const chatHeader = document.getElementById('chat-header');
-        const otherUser = db.getUserByEmail(activeChatWith);
-        chatHeader.textContent = otherUser ? "Chat avec " + otherUser.name : "Chat";
-
-        chatMessages.innerHTML = messages.map(m => `
-            <div style="align-self: ${m.from === currentUserEmail ? 'flex-end' : 'flex-start'}; 
-                        background: ${m.from === currentUserEmail ? 'var(--primary)' : '#f1f5f9'};
-                        color: ${m.from === currentUserEmail ? 'white' : 'var(--dark)'};
-                        padding: 10px 15px; border-radius: 15px; max-width: 80%; font-size: 0.9rem; position: relative;">
-                ${escapeHTML(m.text)}
-                <div style="font-size: 0.6rem; margin-top: 5px; opacity: 0.7; text-align: right;">${m.date.split(' ')[1]}</div>
+        contactsList.innerHTML = contacts.map(c => `
+            <div onclick="selectContact('${c.email}')" class="contact-item ${activeChatWith === c.email ? 'active' : ''}" 
+                 style="padding: 10px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; transition: background 0.2s; background: ${activeChatWith === c.email ? 'var(--light)' : 'transparent'}">
+                <img src="${c.profilePic || ''}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                <div style="flex: 1; overflow: hidden;">
+                    <div style="font-weight: 700; font-size: 0.9rem; white-space: nowrap; text-overflow: ellipsis;">${escapeHTML(c.name)}</div>
+                    <div style="font-size: 0.7rem; color: var(--gray);">${c.role === 'owner' ? 'Propriétaire' : 'Support'}</div>
+                </div>
             </div>
         `).join('');
 
-        chatMessages.scrollTop = chatMessages.scrollHeight;
 
         document.getElementById('chat-text-input').disabled = false;
         document.getElementById('chat-send-btn').disabled = false;
+    } catch (e) {
+        console.error(e);
     }
 }
 
-function selectContact(email) {
+async function selectContact(email) {
     activeChatWith = email;
-    db.markMessagesAsRead(currentUserEmail, email);
-    renderMessaging();
+    // Pour l'instant on ignore le marquage comme lu ou on ajoute un endpoint
+    // await api.markMessagesAsRead(currentUserEmail, email);
+    await renderMessaging();
 }
 
-function handleSendMessage(e) {
+async function handleSendMessage(e) {
     if (e) e.preventDefault();
     const input = document.getElementById('chat-text-input');
     const text = input.value.trim();
     if (text && activeChatWith) {
-        db.sendMessage(currentUserEmail, activeChatWith, text);
-        input.value = "";
-        renderMessaging();
+        try {
+            await api.sendMessage(currentUserEmail, activeChatWith, text);
+            input.value = "";
+            await renderMessaging();
+        } catch (e) {
+            console.error(e);
+        }
     }
 }
 

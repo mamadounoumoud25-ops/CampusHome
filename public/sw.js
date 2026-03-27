@@ -1,13 +1,13 @@
-const CACHE_NAME = 'campushome-v2'; // Version incremented
+const CACHE_NAME = 'campushome-v3'; 
 const ASSETS = [
     './',
     './index.html',
     './etudiants.html',
     './style.css',
     './script.js',
-    './data.js',
+    './api.js',
     './manifest.json',
-    './icon.png',
+    './logo.png',
     'https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap'
 ];

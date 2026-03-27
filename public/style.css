@@ -815,6 +815,7 @@ footer {
 }
 
 .btn-sm {
+    padding: 0.5rem 1rem;
     font-size: 0.85rem;
     border: none;
     border-radius: 8px;
@@ -1059,18 +1060,15 @@ select:focus {
 /* Bottom Navigation (Mobile) */
 .bottom-nav {
     position: fixed;
-    top: 65px;
-    /* Aligné sous la navbar */
+    top: 65px; /* Aligné sous la navbar */
     left: 0;
     width: 100%;
     background: var(--white);
     display: none;
     justify-content: space-around;
     padding: 0.8rem 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    /* Bordure en bas maintenant */
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.03);
-    /* Ombre vers le bas */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05); /* Bordure en bas maintenant */
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.03); /* Ombre vers le bas */
     z-index: 1000;
 }
 
@@ -1102,8 +1100,7 @@ select:focus {
 /* Ajustements globaux pour Mobile/Android/iOS */
 @media (max-width: 768px) {
     body {
-        padding-top: 130px;
-        /* Espace pour la navbar (env 65px) + onglets (env 65px) */
+        padding-top: 130px; /* Espace pour la navbar (env 65px) + onglets (env 65px) */
     }
 
     .bottom-nav {
