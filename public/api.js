@@ -81,6 +81,19 @@ const api = {
         });
     },
 
+    async updateLogement(id, data) {
+        return this.fetch(`/api/logements/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    },
+
+    async deleteLogement(id) {
+        return this.fetch(`/api/logements/${id}`, {
+            method: 'DELETE'
+        });
+    },
+
     async getMessages(email) {
         return this.fetch(`/api/messages/${email}`);
     },
@@ -122,6 +135,48 @@ const api = {
         return this.fetch('/api/users/leave', {
             method: 'POST',
             body: JSON.stringify({ studentEmail })
+        });
+    },
+
+    async addReview(logementId, review) {
+        return this.fetch(`/api/logements/${logementId}/reviews`, {
+            method: 'POST',
+            body: JSON.stringify(review)
+        });
+    },
+
+    async deleteNotification(email, index) {
+        return this.fetch('/api/users/notifications/delete', {
+            method: 'POST',
+            body: JSON.stringify({ email, index })
+        });
+    },
+
+    async markNotifsAsRead(email) {
+        return this.fetch('/api/users/notifications/read', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+    },
+
+    async addDocument(email, name, type, data) {
+        return this.fetch('/api/users/documents', {
+            method: 'POST',
+            body: JSON.stringify({ email, name, type, data })
+        });
+    },
+
+    async deleteDocument(email, docId) {
+        return this.fetch('/api/users/documents/delete', {
+            method: 'POST',
+            body: JSON.stringify({ email, docId })
+        });
+    },
+
+    async resetPassword(email, phone, newPass) {
+        return this.fetch('/api/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ email, phone, newPass })
         });
     }
 };

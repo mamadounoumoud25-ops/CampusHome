@@ -1,5 +1,9 @@
 const Database = require('better-sqlite3');
-const db = new Database('campus.db');
+const bcrypt = require('bcryptjs');
+const path = require('path');
+
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'campus.db');
+const db = new Database(dbPath);
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
@@ -21,7 +25,9 @@ db.exec(`
         montantPaye INTEGER DEFAULT 0,
         resteAPayer INTEGER DEFAULT 0,
         omNumber TEXT,
-        momoNumber TEXT
+        momoNumber TEXT,
+        notifications TEXT DEFAULT '[]',
+        documents TEXT DEFAULT '[]'
     );
 
     CREATE TABLE IF NOT EXISTS logements (
@@ -37,6 +43,7 @@ db.exec(`
         disponible BOOLEAN DEFAULT 1,
         ownerEmail TEXT NOT NULL,
         googleMaps TEXT,
+        reviews TEXT DEFAULT '[]',
         FOREIGN KEY (ownerEmail) REFERENCES users(email)
     );
 
@@ -90,10 +97,14 @@ if (userCount === 0) {
     insertSupport.run("Urgence Logement", "+224 611 11 11 11", "Assistance", "Problèmes techniques graves");
 
     // Default Users
+    const saltRounds = 10;
+    const hashedPassNormal = bcrypt.hashSync("1234", saltRounds);
+    const hashedPassAdmin = bcrypt.hashSync("admin123", saltRounds);
+
     const insertUser = db.prepare('INSERT INTO users (name, email, role, password, phone, filiere, date, currentLogementId, loyerTotal, montantPaye, resteAPayer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    insertUser.run("Mamadou Bah", "mamadou@etu.univ-labe.gn", "student", "1234", "+224 600 00 00 00", "Informatique", "10/02/2024", 1, 150000, 150000, 0);
-    insertUser.run("Fatoumata Dalein", "fatou@proprio.gn", "owner", "1234", "+224 622 22 22 22", "Propriétaire", "09/02/2024", null, 0, 0, 0);
-    insertUser.run("Admin Admin", "admin@campus.com", "admin", "admin123", "+224 666 66 66 66", "Admin", "01/01/2024", null, 0, 0, 0);
+    insertUser.run("Mamadou Bah", "mamadou@etu.univ-labe.gn", "student", hashedPassNormal, "+224 600 00 00 00", "Informatique", "10/02/2024", 1, 150000, 150000, 0);
+    insertUser.run("Fatoumata Dalein", "fatou@proprio.gn", "owner", hashedPassNormal, "+224 622 22 22 22", "Propriétaire", "09/02/2024", null, 0, 0, 0);
+    insertUser.run("Admin Admin", "admin@campus.com", "admin", hashedPassAdmin, "+224 666 66 66 66", "Admin", "01/01/2024", null, 0, 0, 0);
 
     // Default Logements
     const insertLogement = db.prepare('INSERT INTO logements (titre, type, prix, quartier, image, wcInterne, electricite, eau, disponible, ownerEmail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');

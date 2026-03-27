@@ -5,6 +5,14 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
+    disk:
+      name: campus-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: PORT
+        value: 10000
+      - key: DATABASE_PATH
+        value: /data/campus.db
